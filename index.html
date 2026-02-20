@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uñas Mágicas - Reserva de Turnos</title>
-    <meta name="description" content="Reserva tu turno de manicuría fácil y rápido">
+    <title>Bennet Salon - Reserva de Turnos</title>
+    <meta name="description" content="Reserva tu turno en Bennet Salon fácil y rápido">
     
-    <!-- PWA -->
-    <link rel="manifest" href="/tuturno/manifest.json">
-    <meta name="theme-color" content="#ec4899">
+    <!-- PWA con rutas Bennet Salon -->
+    <link rel="manifest" href="/bennet.salon/manifest.json">
+    <meta name="theme-color" content="#db2777">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Uñas Mágicas">
-    <link rel="apple-touch-icon" href="/tuturno/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/tuturno/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="/tuturno/icons/icon-512x512.png">
+    <meta name="apple-mobile-web-app-title" content="Bennet Salon">
+    <link rel="apple-touch-icon" href="/bennet.salon/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/bennet.salon/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/bennet.salon/icons/icon-512x512.png">
     
     <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
     
     <style type="text/tailwindcss">
@@ -76,14 +77,6 @@
             font-size: 14px;
             color: #2563eb;
         }
-        .close-button {
-            background: transparent;
-            color: white;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0 4px;
-        }
         @keyframes slideUp {
             from { transform: translateY(100px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -112,7 +105,7 @@
             let updateNotificationShown = false;
 
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/tuturno/sw.js')
+                navigator.serviceWorker.register('/bennet.salon/sw.js')
                     .then(registration => {
                         console.log('✅ Service Worker registrado');
 

@@ -3,31 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Uñas Mágicas</title>
+    <title>Admin - Bennet Salon</title>
     
-    <!-- PWA -->
-    <link rel="manifest" href="/tuturno/manifest.json">
-    <meta name="theme-color" content="#ec4899">
+    <!-- PWA con rutas Bennet Salon -->
+    <link rel="manifest" href="/bennet.salon/manifest.json">
+    <meta name="theme-color" content="#db2777">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Uñas Mágicas Admin">
-    <link rel="apple-touch-icon" href="/tuturno/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/tuturno/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="/tuturno/icons/icon-512x512.png">
+    <meta name="apple-mobile-web-app-title" content="Bennet Salon Admin">
+    <link rel="apple-touch-icon" href="/bennet.salon/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/bennet.salon/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/bennet.salon/icons/icon-512x512.png">
     
     <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
     
     <style>
-        .update-banner {
+        .update-banner, .install-banner {
             position: fixed;
             bottom: 20px;
             left: 20px;
             right: 20px;
-            background: #2563eb;
             color: white;
             padding: 16px;
             border-radius: 12px;
@@ -38,6 +38,8 @@
             margin: 0 auto;
             font-family: system-ui, -apple-system, sans-serif;
         }
+        .update-banner { background: #2563eb; }
+        .install-banner { background: #10b981; }
         .banner-content {
             display: flex;
             align-items: center;
@@ -61,7 +63,16 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 14px;
-            color: #2563eb;
+        }
+        .update-button { color: #2563eb; }
+        .install-button { color: #10b981; }
+        .close-button {
+            background: transparent;
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 4px;
         }
         @keyframes slideUp {
             from { transform: translateY(100px); opacity: 0; }
@@ -76,11 +87,32 @@
     <script type="text/babel" src="admin-app.js"></script>
 
     <script>
+        // 🔥 VERIFICACIÓN DE AUTENTICACIÓN
+        (function() {
+            const isAuthenticated = localStorage.getItem('adminAuth') === 'true';
+            const loginTime = localStorage.getItem('adminLoginTime');
+            
+            // Verificar si pasaron más de 8 horas
+            const isValidSession = loginTime && (Date.now() - parseInt(loginTime)) < 8 * 60 * 60 * 1000;
+            
+            if (!isAuthenticated || !isValidSession) {
+                // Limpiar cualquier sesión inválida
+                localStorage.removeItem('adminAuth');
+                localStorage.removeItem('adminUser');
+                localStorage.removeItem('adminLoginTime');
+                
+                // Redirigir al login
+                window.location.href = 'admin-login.html';
+                return;
+            }
+        })();
+
+        // Service Worker y notificaciones
         if ('serviceWorker' in navigator) {
             let updateNotificationShown = false;
 
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/tuturno/sw.js')
+                navigator.serviceWorker.register('/bennet.salon/sw.js')
                     .then(registration => {
                         console.log('✅ Service Worker registrado (admin)');
 
@@ -99,11 +131,8 @@
             });
 
             navigator.serviceWorker.addEventListener('message', event => {
-                if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
+                if (event.data.type === 'NEW_VERSION_AVAILABLE') {
                     console.log('📢 Nueva versión disponible (admin)');
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
                 }
             });
         }
@@ -121,7 +150,7 @@
                         <div class="banner-title">¡Nueva versión disponible!</div>
                         <div class="banner-subtitle">Actualizamos el panel admin</div>
                     </div>
-                    <button onclick="updateApp()" class="banner-button">Actualizar</button>
+                    <button onclick="updateApp()" class="banner-button update-button">Actualizar</button>
                 </div>
             `;
             document.body.appendChild(notification);
@@ -131,9 +160,15 @@
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
                 }
-                setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => window.location.reload(), 500);
             };
         }
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
     </script>
 </body>
 </html>

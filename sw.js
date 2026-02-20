@@ -1,23 +1,23 @@
-// sw.js - Service Worker para Uñas Mágicas
+// sw.js - Service Worker para Bennet Salon
 
-const CACHE_NAME = 'unas-magicas-v1';
+const CACHE_NAME = 'bennet-salon-v1';
 const urlsToCache = [
-  '/tuturno/',
-  '/tuturno/index.html',
-  '/tuturno/admin.html',
-  '/tuturno/app.js',
-  '/tuturno/admin-app.js',
-  '/tuturno/manifest.json',
-  '/tuturno/utils/api.js',
-  '/tuturno/utils/timeLogic.js',
-  '/tuturno/components/Header.js',
-  '/tuturno/components/WelcomeScreen.js',
-  '/tuturno/components/ServiceSelection.js',
-  '/tuturno/components/Calendar.js',
-  '/tuturno/components/TimeSlots.js',
-  '/tuturno/components/BookingForm.js',
-  '/tuturno/components/Confirmation.js',
-  '/tuturno/components/WhatsAppButton.js',
+  '/bennet.salon/',
+  '/bennet.salon/index.html',
+  '/bennet.salon/admin.html',
+  '/bennet.salon/app.js',
+  '/bennet.salon/admin-app.js',
+  '/bennet.salon/manifest.json',
+  '/bennet.salon/utils/api.js',
+  '/bennet.salon/utils/timeLogic.js',
+  '/bennet.salon/components/Header.js',
+  '/bennet.salon/components/WelcomeScreen.js',
+  '/bennet.salon/components/ServiceSelection.js',
+  '/bennet.salon/components/Calendar.js',
+  '/bennet.salon/components/TimeSlots.js',
+  '/bennet.salon/components/BookingForm.js',
+  '/bennet.salon/components/Confirmation.js',
+  '/bennet.salon/components/WhatsAppButton.js',
   'https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js',
   'https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js',
   'https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js',
@@ -106,7 +106,7 @@ self.addEventListener('fetch', event => {
           })
           .catch(() => {
             if (event.request.mode === 'navigate') {
-              return caches.match('/tuturno/index.html');
+              return caches.match('/bennet.salon/index.html');
             }
           });
       })

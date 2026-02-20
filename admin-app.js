@@ -1,9 +1,10 @@
 // admin-app.js - Bennet Salon (con botón de logout)
 
-const SUPABASE_URL = 'https://bjpzdeixwkgpiqdjwclk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHpkZWl4d2tncGlxZGp3Y2xrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0NTUxMjIsImV4cCI6MjA4NzAzMTEyMn0.cJXxeKEj47kCir8lC91YWonuo7XN8UytBn58ki_cWoU';
+// 🔥 USAR LA MISMA CONFIGURACIÓN QUE api.js
+const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
 
-const TABLE_NAME = 'bennet.salon';
+const TABLE_NAME = 'benettsalon';
 
 async function getAllBookings() {
     const res = await fetch(
