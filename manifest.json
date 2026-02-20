@@ -1,13 +1,15 @@
 {
   "name": "Uñas Mágicas - Reserva de Turnos",
   "short_name": "Uñas Mágicas",
-  "description": "Reservá tu turno de manicuría fácil y rápido, incluso sin internet",
+  "description": "Reservá tu turno de manicuría fácil y rápido",
   "start_url": "/tuturno/",
   "scope": "/tuturno/",
   "display": "standalone",
   "background_color": "#faf8f7",
   "theme_color": "#ec4899",
   "orientation": "portrait",
+  "categories": ["lifestyle", "beauty"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icons/icon-72x72.png",

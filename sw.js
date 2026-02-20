@@ -25,6 +25,13 @@ const urlsToCache = [
   'https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css'
 ];
 
+// Escuchar mensajes para SKIP_WAITING
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Instalación
 self.addEventListener('install', event => {
   console.log('Service Worker instalando...');
@@ -52,6 +59,7 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
+      // Enviar mensaje a TODAS las pestañas abiertas
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
           client.postMessage({
@@ -66,6 +74,7 @@ self.addEventListener('activate', event => {
 
 // Estrategia de cache
 self.addEventListener('fetch', event => {
+  // No cachear peticiones a Supabase
   if (event.request.url.includes('supabase.co')) {
     return;
   }
@@ -74,6 +83,7 @@ self.addEventListener('fetch', event => {
     caches.match(event.request)
       .then(cachedResponse => {
         if (cachedResponse) {
+          // Actualizar cache en segundo plano
           fetch(event.request)
             .then(networkResponse => {
               if (networkResponse && networkResponse.status === 200) {

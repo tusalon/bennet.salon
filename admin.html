@@ -22,11 +22,12 @@
     <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
     
     <style>
-        .update-banner, .install-banner {
+        .update-banner {
             position: fixed;
             bottom: 20px;
             left: 20px;
             right: 20px;
+            background: #2563eb;
             color: white;
             padding: 16px;
             border-radius: 12px;
@@ -37,8 +38,6 @@
             margin: 0 auto;
             font-family: system-ui, -apple-system, sans-serif;
         }
-        .update-banner { background: #2563eb; }
-        .install-banner { background: #10b981; }
         .banner-content {
             display: flex;
             align-items: center;
@@ -62,16 +61,7 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 14px;
-        }
-        .update-button { color: #2563eb; }
-        .install-button { color: #10b981; }
-        .close-button {
-            background: transparent;
-            color: white;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0 4px;
+            color: #2563eb;
         }
         @keyframes slideUp {
             from { transform: translateY(100px); opacity: 0; }
@@ -109,8 +99,11 @@
             });
 
             navigator.serviceWorker.addEventListener('message', event => {
-                if (event.data.type === 'NEW_VERSION_AVAILABLE') {
+                if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
                     console.log('📢 Nueva versión disponible (admin)');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
                 }
             });
         }
@@ -128,7 +121,7 @@
                         <div class="banner-title">¡Nueva versión disponible!</div>
                         <div class="banner-subtitle">Actualizamos el panel admin</div>
                     </div>
-                    <button onclick="updateApp()" class="banner-button update-button">Actualizar</button>
+                    <button onclick="updateApp()" class="banner-button">Actualizar</button>
                 </div>
             `;
             document.body.appendChild(notification);
@@ -138,15 +131,9 @@
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
                 }
-                setTimeout(() => window.location.reload(), 500);
+                setTimeout(() => window.location.reload(), 1000);
             };
         }
-
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-        });
     </script>
 </body>
 </html>
