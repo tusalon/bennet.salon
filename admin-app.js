@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (con botón de logout)
+// admin-app.js - Bennet Salon (con filtros por estado)
 
 // 🔥 USAR LA MISMA CONFIGURACIÓN QUE api.js
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -39,6 +39,8 @@ function AdminApp() {
     const [bookings, setBookings] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [filterDate, setFilterDate] = React.useState('');
+    // 🔥 NUEVO: Estado para el filtro de estado
+    const [statusFilter, setStatusFilter] = React.useState('activas'); // 'activas', 'canceladas', 'todas'
 
     const fetchBookings = async () => {
         setLoading(true);
@@ -68,7 +70,7 @@ function AdminApp() {
         }
     };
 
-    // Función para cerrar sesión
+    // 🔥 Función para cerrar sesión
     const handleLogout = () => {
         if (confirm('¿Cerrar sesión?')) {
             localStorage.removeItem('adminAuth');
@@ -78,9 +80,28 @@ function AdminApp() {
         }
     };
 
-    const filteredBookings = filterDate
-        ? bookings.filter(b => b.fecha === filterDate)
-        : bookings;
+    // 🔥 NUEVO: Filtrar reservas según los criterios
+    const getFilteredBookings = () => {
+        // Primero filtramos por fecha si hay
+        let filtered = filterDate
+            ? bookings.filter(b => b.fecha === filterDate)
+            : [...bookings];
+        
+        // Luego filtramos por estado
+        if (statusFilter === 'activas') {
+            filtered = filtered.filter(b => b.estado !== 'Cancelado');
+        } else if (statusFilter === 'canceladas') {
+            filtered = filtered.filter(b => b.estado === 'Cancelado');
+        }
+        // Si es 'todas', no filtramos por estado
+        
+        return filtered;
+    };
+
+    // 🔥 NUEVO: Contadores para los badges
+    const activasCount = bookings.filter(b => b.estado !== 'Cancelado').length;
+    const canceladasCount = bookings.filter(b => b.estado === 'Cancelado').length;
+    const filteredBookings = getFilteredBookings();
 
     return (
         <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
@@ -102,11 +123,77 @@ function AdminApp() {
                     </div>
                 </div>
 
-                {/* Filtro */}
-                <div className="bg-white p-4 rounded-xl shadow-sm flex gap-3">
-                    <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="border rounded px-3 py-2" />
-                    {filterDate && <button onClick={() => setFilterDate('')} className="text-red-500">Limpiar</button>}
-                    <span className="ml-auto">Total: {filteredBookings.length}</span>
+                {/* 🔥 NUEVO: Filtros superiores */}
+                <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
+                    {/* Filtro por fecha */}
+                    <div className="flex flex-wrap gap-3 items-center">
+                        <div className="flex items-center gap-2">
+                            <div className="icon-calendar text-gray-400"></div>
+                            <input 
+                                type="date" 
+                                value={filterDate} 
+                                onChange={(e) => setFilterDate(e.target.value)} 
+                                className="border rounded-lg px-3 py-2 text-sm"
+                            />
+                            {filterDate && (
+                                <button 
+                                    onClick={() => setFilterDate('')} 
+                                    className="text-red-500 text-sm hover:text-red-700"
+                                >
+                                    Limpiar
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Filtro por estado */}
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setStatusFilter('activas')}
+                            className={`
+                                px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                                ${statusFilter === 'activas' 
+                                    ? 'bg-green-500 text-white shadow-md' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                            `}
+                        >
+                            <div className="icon-check-circle"></div>
+                            Activas ({activasCount})
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('canceladas')}
+                            className={`
+                                px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                                ${statusFilter === 'canceladas' 
+                                    ? 'bg-red-500 text-white shadow-md' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                            `}
+                        >
+                            <div className="icon-x-circle"></div>
+                            Canceladas ({canceladasCount})
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('todas')}
+                            className={`
+                                px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                                ${statusFilter === 'todas' 
+                                    ? 'bg-gray-800 text-white shadow-md' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                            `}
+                        >
+                            <div className="icon-layers"></div>
+                            Todas ({bookings.length})
+                        </button>
+                    </div>
+
+                    {/* Total mostrado */}
+                    <div className="text-sm text-gray-500 border-t pt-2 mt-1">
+                        Mostrando: <span className="font-bold text-pink-600">{filteredBookings.length}</span> turnos
+                        {filterDate && <span> • Fecha: {filterDate}</span>}
+                        {statusFilter !== 'todas' && (
+                            <span> • {statusFilter === 'activas' ? 'Activas' : 'Canceladas'}</span>
+                        )}
+                    </div>
                 </div>
 
                 {loading ? (
@@ -144,6 +231,13 @@ function AdminApp() {
                                     </div>
                                 </div>
                             ))}
+                            
+                            {filteredBookings.length === 0 && (
+                                <div className="text-center py-12 bg-white rounded-xl">
+                                    <div className="icon-calendar-x text-4xl text-gray-300 mb-2"></div>
+                                    <p className="text-gray-500">No hay turnos para mostrar</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Vista Desktop - Tabla */}
@@ -151,17 +245,17 @@ function AdminApp() {
                             <table className="w-full">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="p-4">Fecha/Hora</th>
-                                        <th>Cliente</th>
-                                        <th>WhatsApp</th>
-                                        <th>Servicio</th>
-                                        <th>Estado</th>
-                                        <th>Acción</th>
+                                        <th className="p-4 text-left">Fecha/Hora</th>
+                                        <th className="text-left">Cliente</th>
+                                        <th className="text-left">WhatsApp</th>
+                                        <th className="text-left">Servicio</th>
+                                        <th className="text-left">Estado</th>
+                                        <th className="text-left">Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredBookings.map(b => (
-                                        <tr key={b.id} className="border-t">
+                                        <tr key={b.id} className="border-t hover:bg-gray-50">
                                             <td className="p-4">{b.fecha} {formatTo12Hour(b.hora_inicio)}</td>
                                             <td>{b.cliente_nombre}</td>
                                             <td>{b.cliente_whatsapp}</td>
@@ -177,13 +271,21 @@ function AdminApp() {
                                             <td>
                                                 {b.estado === 'Reservado' && (
                                                     <button onClick={() => handleCancel(b.id, b)} 
-                                                            className="p-2 bg-red-500 text-white rounded-lg">
-                                                        ✗
+                                                            className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
+                                                        Cancelar
                                                     </button>
                                                 )}
                                             </td>
                                         </tr>
                                     ))}
+                                    
+                                    {filteredBookings.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" className="text-center py-12 text-gray-500">
+                                                No hay turnos para mostrar
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
