@@ -1,5 +1,4 @@
-// components/Calendar.js - VERSIÓN COMPLETA CORREGIDA
-// Horario de atención: 9 AM - 12 PM | 1 PM - 5:30 PM (último turno)
+// components/Calendar.js - VERSIÓN CORREGIDA (sin problemas de zona horaria)
 
 function Calendar({ onDateSelect, selectedDate }) {
     const [currentDate, setCurrentDate] = React.useState(new Date());
@@ -12,38 +11,40 @@ function Calendar({ onDateSelect, selectedDate }) {
         return `${y}-${m}-${d}`;
     };
 
-    // 🔥 FUNCIÓN CORREGIDA: Verifica si una fecha NO está disponible
-    const isPastDate = (date) => {
-        const now = new Date(); // Ej: 18/02/2026 17:50 (5:50 PM)
+    // ✅ CORREGIDO: Obtener fecha local sin problemas de zona horaria
+    const getTodayLocalString = () => {
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Hoy a las 00:00
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Verificar si una fecha NO está disponible
+    const isPastDate = (date) => {
+        const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
-        // Caso 1: Fechas anteriores a hoy (ej: 17/02)
+        const todayStr = getTodayLocalString();
+        const dateStr = formatDate(date);
+        
+        // Caso 1: Fechas anteriores a hoy
         if (date < today) return true;
         
-        // Caso 2: Es HOY - verificar si ya pasó el horario del ÚLTIMO TURNO
-        if (date.getTime() === today.getTime()) {
-            const currentHour = now.getHours(); // 17 (5 PM)
-            const currentMinutes = now.getMinutes(); // 50
+        // Caso 2: Es HOY - verificar si ya pasó el horario del último turno
+        if (dateStr === todayStr) {
+            const currentHour = now.getHours();
+            const currentMinutes = now.getMinutes();
             
-            // ⚠️ CONFIGURACIÓN DEL NEGOCIO:
             // Último turno empieza a las 5:30 PM (17:30)
-            const LAST_SLOT_HOUR = 17; // 5 PM
-            const LAST_SLOT_MINUTES = 30; // 30 minutos
+            const LAST_SLOT_HOUR = 17;
+            const LAST_SLOT_MINUTES = 30;
             
-            // Si son más de las 5:30 PM, hoy ya no está disponible
-            if (currentHour > LAST_SLOT_HOUR) {
-                // Ej: 17:50 → 17 > 17? NO (son iguales)
-                // Ej: 18:00 → 18 > 17? SÍ → true
-                return true;
-            }
-            if (currentHour === LAST_SLOT_HOUR && currentMinutes > LAST_SLOT_MINUTES) {
-                // Ej: 17:50 → 17 === 17 Y 50 > 30 → SÍ → true
-                return true;
-            }
+            if (currentHour > LAST_SLOT_HOUR) return true;
+            if (currentHour === LAST_SLOT_HOUR && currentMinutes > LAST_SLOT_MINUTES) return true;
         }
         
-        // Si no se cumplió ninguna condición, la fecha está disponible
         return false;
     };
 
@@ -91,7 +92,7 @@ function Calendar({ onDateSelect, selectedDate }) {
     const days = getDaysInMonth();
     const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-    // Para mostrar mensaje según la hora actual
+    // Verificar si hoy ya pasó el último turno
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinutes = now.getMinutes();
@@ -152,12 +153,8 @@ function Calendar({ onDateSelect, selectedDate }) {
                             const sunday = isSunday(date);
                             const selected = selectedDate === dateStr;
                             
-                            // 🔥 REGLA DE DISPONIBILIDAD:
-                            // - No puede ser día pasado (incluye hoy si ya pasó el último turno)
-                            // - No puede ser domingo
                             const available = !past && !sunday;
                             
-                            // Determinar estilos según el estado
                             let className = "h-10 w-full flex items-center justify-center rounded-lg text-sm font-medium transition-all relative";
                             
                             if (selected) {
@@ -168,9 +165,8 @@ function Calendar({ onDateSelect, selectedDate }) {
                                 className += " text-gray-700 hover:bg-pink-50 hover:text-pink-600 cursor-pointer";
                             }
                             
-                            // Tooltip según el caso
                             let title = "";
-                            if (past && date.getTime() === new Date().setHours(0,0,0,0)) {
+                            if (past && dateStr === getTodayLocalString()) {
                                 title = "Hoy ya no hay horarios disponibles (último turno 5:30 PM)";
                             } else if (past) {
                                 title = "Fecha pasada";

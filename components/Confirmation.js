@@ -1,22 +1,19 @@
+// components/Confirmation.js - VERSIÓN ACTUALIZADA (con formato 12h)
+
 function Confirmation({ booking, onReset }) {
     React.useEffect(() => {
-        const phone = "5354066204"; // Número del dueño (Cuba)
-        const text = `📅 NUEVO TURNO - UÑAS MÁGICAS\n👤 Cliente: ${booking.cliente_nombre}\n📱 WhatsApp: ${booking.cliente_whatsapp}\n💅 Servicio: ${booking.servicio} (${booking.duracion} min)\n📆 Fecha: ${booking.fecha}\n⏰ Hora: ${booking.hora_inicio}`;
+        const phone = "5354066204";
+        const text = `📅 NUEVO TURNO - BENNET SALON\n👤 Cliente: ${booking.cliente_nombre}\n📱 WhatsApp: ${booking.cliente_whatsapp}\n💅 Servicio: ${booking.servicio} (${booking.duracion} min)\n📆 Fecha: ${booking.fecha}\n⏰ Hora: ${formatTo12Hour(booking.hora_inicio)}`;
         const encodedText = encodeURIComponent(text);
         
-        // Detectar si es iPhone/iPad
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         
         if (isIOS) {
-            // En iPhone: intentar abrir la app directamente con whatsapp://
             window.location.href = `whatsapp://send?phone=${phone}&text=${encodedText}`;
-            
-            // Fallback: si no tiene la app, abrir versión web
             setTimeout(() => {
                 window.location.href = `https://wa.me/${phone}?text=${encodedText}`;
             }, 500);
         } else {
-            // En Android/PC: usar web normal
             window.location.href = `https://wa.me/${phone}?text=${encodedText}`;
         }
     }, [booking]);
@@ -38,7 +35,6 @@ function Confirmation({ booking, onReset }) {
                         <div className="font-medium text-gray-900 text-lg">{booking.cliente_nombre}</div>
                     </div>
                     
-                    {/* 🔥 NUEVO: Mostrar el WhatsApp que el cliente ingresó */}
                     <div>
                         <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">WhatsApp</div>
                         <div className="font-medium text-gray-900">{booking.cliente_whatsapp}</div>
@@ -56,7 +52,7 @@ function Confirmation({ booking, onReset }) {
                         </div>
                         <div>
                             <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Hora</div>
-                            <div className="font-medium text-gray-900">{booking.hora_inicio}</div>
+                            <div className="font-medium text-gray-900">{formatTo12Hour(booking.hora_inicio)}</div>
                         </div>
                     </div>
                 </div>

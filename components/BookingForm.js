@@ -1,17 +1,10 @@
+// components/BookingForm.js - VERSIÓN ACTUALIZADA con el nuevo createBooking
+
 function BookingForm({ service, date, time, onSubmit, onCancel }) {
     const [name, setName] = React.useState('');
     const [whatsapp, setWhatsapp] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
     const [error, setError] = React.useState(null);
-
-    // Función para formatear hora a 12h
-    const formatTo12Hour = (timeStr) => {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const period = hours >= 12 ? 'PM' : 'AM';
-        let hour12 = hours % 12;
-        hour12 = hour12 === 0 ? 12 : hour12;
-        return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -47,8 +40,11 @@ function BookingForm({ service, date, time, onSubmit, onCancel }) {
                 estado: "Reservado"
             };
 
-            await createBooking(bookingData);
-            onSubmit(bookingData);
+            // ✅ Ahora createBooking devuelve los datos reales de la BD
+            const result = await createBooking(bookingData);
+            
+            // Pasamos los datos reales (con ID, etc.) al componente de confirmación
+            onSubmit(result.data);
 
         } catch (err) {
             console.error(err);
@@ -69,7 +65,7 @@ function BookingForm({ service, date, time, onSubmit, onCancel }) {
                 </div>
 
                 <div className="space-y-4">
-                    {/* Resumen del turno - AHORA CON HORA EN FORMATO 12H */}
+                    {/* Resumen del turno */}
                     <div className="bg-pink-50 p-4 rounded-xl border border-pink-100 space-y-2">
                         <div className="flex items-center gap-3 text-gray-700">
                             <div className="icon-sparkles text-pink-500"></div>

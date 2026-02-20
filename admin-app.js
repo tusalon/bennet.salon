@@ -35,15 +35,6 @@ async function cancelBooking(id) {
     return res.ok;
 }
 
-const formatTo12Hour = (timeStr) => {
-    if (!timeStr) return '';
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    let hour12 = hours % 12;
-    hour12 = hour12 === 0 ? 12 : hour12;
-    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-};
-
 function AdminApp() {
     const [bookings, setBookings] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
@@ -77,7 +68,7 @@ function AdminApp() {
         }
     };
 
-    // 🔥 Función para cerrar sesión
+    // Función para cerrar sesión
     const handleLogout = () => {
         if (confirm('¿Cerrar sesión?')) {
             localStorage.removeItem('adminAuth');

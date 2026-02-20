@@ -13,24 +13,39 @@ function minutesToTime(totalMinutes) {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-// NUEVA: Convertir hora 24h a formato 12h con AM/PM
+// Convertir hora 24h a formato 12h con AM/PM
 function formatTo12Hour(timeStr) {
+    if (!timeStr) return '';
     const [hours, minutes] = timeStr.split(':').map(Number);
     const period = hours >= 12 ? 'PM' : 'AM';
     let hour12 = hours % 12;
-    hour12 = hour12 === 0 ? 12 : hour12; // 0 -> 12 AM
+    hour12 = hour12 === 0 ? 12 : hour12;
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-// NUEVA: Convertir hora 12h a formato 24h (para procesamiento interno)
-function parse12HourTo24Hour(timeStr, period) {
-    let [hours, minutes] = timeStr.split(':').map(Number);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+// Obtener fecha actual en formato local YYYY-MM-DD (CORREGIDO - sin problemas de zona horaria)
+function getCurrentLocalDate() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
-// Generar slots respetando bloques de horario (9-12 y 13-18) - Internamente usa 24h
+// Verificar si una hora ya pasó (para el día actual)
+function isTimePassedToday(timeStr24) {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    const [slotHour, slotMinute] = timeStr24.split(':').map(Number);
+    
+    if (slotHour < currentHour) return true;
+    if (slotHour === currentHour && slotMinute < currentMinute) return true;
+    return false;
+}
+
+// Generar slots respetando bloques de horario (9-12 y 13-18)
 function generateBaseSlots(durationMinutes) {
     const slots = [];
     
@@ -55,19 +70,18 @@ function generateBaseSlots(durationMinutes) {
     return slots;
 }
 
-// Check if a slot is available considering existing bookings
+// Filtrar slots disponibles considerando reservas existentes
 function filterAvailableSlots(baseSlots, durationMinutes, existingBookings) {
     return baseSlots.filter(slotStartStr => {
         const slotStart = timeToMinutes(slotStartStr);
         const slotEnd = slotStart + durationMinutes;
 
-        // Check against every existing booking
+        // Verificar contra cada reserva existente
         const hasConflict = existingBookings.some(booking => {
             const bookingStart = timeToMinutes(booking.hora_inicio);
             const bookingEnd = timeToMinutes(booking.hora_fin);
 
-            // Check for Overlap
-            // Slot starts before booking ends AND Slot ends after booking starts
+            // Verificar superposición
             return (slotStart < bookingEnd) && (slotEnd > bookingStart);
         });
 
@@ -75,6 +89,7 @@ function filterAvailableSlots(baseSlots, durationMinutes, existingBookings) {
     });
 }
 
+// Calcular hora de fin basada en hora de inicio y duración
 function calculateEndTime(startTimeStr, durationMinutes) {
     const startMins = timeToMinutes(startTimeStr);
     return minutesToTime(startMins + durationMinutes);
