@@ -22,7 +22,7 @@ function WelcomeScreen({ onStart }) {
                     <h1 className="text-5xl sm:text-6xl font-bold text-white leading-tight">
                         Bienvenida a <br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">
-                            Uñas Mágicas
+                           BennetSalón
                         </span>
                     </h1>
                     
