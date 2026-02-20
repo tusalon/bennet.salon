@@ -1,4 +1,4 @@
-// components/ServiceSelection.js - Bennet Salon (todos los servicios actualizados)
+// components/ServiceSelection.js - Bennet Salon
 
 function ServiceSelection({ onSelect, selectedService }) {
     const services = [
@@ -91,7 +91,7 @@ function ServiceSelection({ onSelect, selectedService }) {
                 <p className="font-medium mb-1">📌 Notas importantes:</p>
                 <p>• El precio incluye únicamente decoración sencilla</p>
                 <p>• El costo puede variar en dependencia del estado de las uñas</p>
-                <p>• Horarios disponibles: 8:00 AM y 2:00 PM</p>
+                <p>• <strong>Horarios disponibles: 8:00 AM y 2:00 PM</strong></p>
             </div>
         </div>
     );
