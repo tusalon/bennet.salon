@@ -1,4 +1,4 @@
-// utils/api.js - Versión ultra ligera con cache (CORREGIDA)
+// utils/api.js - Versión ultra ligera con cache (ADAPTADA PARA BENETTSALON)
 
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
@@ -94,10 +94,28 @@ async function getBookingsByDate(dateStr) {
 }
 
 /**
- * Create a new booking (invalida cache)
+ * Create a new booking (invalida cache) - VERSIÓN CORREGIDA
  */
 async function createBooking(bookingData) {
     try {
+        // MAPEAR los campos del formulario a los nombres de columna en Supabase
+        // El formulario envía: cliente_nombre, cliente_whatsapp, servicio, duracion, fecha, hora_inicio, hora_fin
+        // La tabla en Supabase tiene: cliente_nombre, cliente_whatsapp, servicio, duracion, fecha, hora_inicio, hora_fin, estado
+        const dataForSupabase = {
+            cliente_nombre: bookingData.cliente_nombre,
+            cliente_whatsapp: bookingData.cliente_whatsapp,
+            servicio: bookingData.servicio,
+            duracion: bookingData.duracion,
+            fecha: bookingData.fecha,
+            hora_inicio: bookingData.hora_inicio,
+            hora_fin: bookingData.hora_fin,
+            estado: bookingData.estado || 'Reservado',
+            // Incluir email si existe (aunque el formulario actual no lo envía)
+            email: bookingData.email || null
+        };
+
+        console.log('📤 Enviando a Supabase:', dataForSupabase); // Para debug
+
         const response = await fetch(
             `${SUPABASE_URL}/rest/v1/${TABLE_NAME}`,
             {
@@ -108,13 +126,13 @@ async function createBooking(bookingData) {
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal'
                 },
-                body: JSON.stringify(bookingData)
+                body: JSON.stringify(dataForSupabase) // Enviar los datos mapeados
             }
         );
         
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Error response:', errorText);
+            console.error('❌ Error response:', errorText);
             throw new Error('Error creating booking');
         }
         
@@ -123,9 +141,10 @@ async function createBooking(bookingData) {
         localStorage.removeItem(`${STORAGE_CACHE_KEY}_${bookingData.fecha}`);
         cache.allBookings = null;
         
+        console.log('✅ Reserva creada exitosamente');
         return { success: true };
     } catch (error) {
-        console.error('Error creating booking:', error);
+        console.error('❌ Error creating booking:', error);
         throw error;
     }
 }
