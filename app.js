@@ -2,7 +2,7 @@
 
 function App() {
     const [showWelcome, setShowWelcome] = React.useState(true);
-    const [clienteAutorizado, setClienteAutorizado] = React.useState(null); // { nombre, whatsapp }
+    const [clienteAutorizado, setClienteAutorizado] = React.useState(null);
     const [bookingData, setBookingData] = React.useState({
         service: null,
         date: null,
@@ -11,14 +11,12 @@ function App() {
     });
     const [showForm, setShowForm] = React.useState(false);
 
-    // Verificar si hay un cliente autorizado en localStorage al inicio
     React.useEffect(() => {
         const savedCliente = localStorage.getItem('cliente_autorizado');
         if (savedCliente) {
             try {
                 const cliente = JSON.parse(savedCliente);
-                // Verificar que el número sigue autorizado
-                if (verificarAccesoCliente(cliente.whatsapp)) {
+                if (window.verificarAccesoCliente && window.verificarAccesoCliente(cliente.whatsapp)) {
                     setClienteAutorizado(cliente);
                 } else {
                     localStorage.removeItem('cliente_autorizado');
@@ -84,7 +82,6 @@ function App() {
         setShowWelcome(true);
     };
 
-    // Si no hay cliente autorizado, mostrar pantalla de solicitud
     if (!clienteAutorizado) {
         return <ClientAuthScreen onAccessGranted={handleAccessGranted} />;
     }
@@ -117,7 +114,6 @@ function App() {
             <Header cliente={clienteAutorizado} onLogout={handleLogout} />
             
             <main className="flex-grow p-4 space-y-8 max-w-3xl mx-auto w-full">
-                {/* Banner de bienvenida para cliente autorizado */}
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <div className="icon-check-circle text-green-600"></div>

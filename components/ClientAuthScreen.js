@@ -1,10 +1,31 @@
-// components/ClientAuthScreen.js - Pantalla de solicitud de acceso (CORREGIDO)
+// components/ClientAuthScreen.js - Pantalla de solicitud de acceso con verificación en vivo
 
 function ClientAuthScreen({ onAccessGranted }) {
     const [nombre, setNombre] = React.useState('');
     const [whatsapp, setWhatsapp] = React.useState('');
     const [solicitudEnviada, setSolicitudEnviada] = React.useState(false);
     const [error, setError] = React.useState('');
+    const [clienteAutorizado, setClienteAutorizado] = React.useState(null);
+
+    // Verificar mientras escribe si el número ya está autorizado
+    const verificarNumero = (numero) => {
+        if (numero.length >= 8) {
+            const numeroLimpio = numero.replace(/\D/g, '');
+            const numeroCompleto = `53${numeroLimpio}`;
+            
+            if (window.verificarAccesoCliente) {
+                const existe = window.verificarAccesoCliente(numeroCompleto);
+                if (existe) {
+                    setClienteAutorizado(existe);
+                    setError('');
+                } else {
+                    setClienteAutorizado(null);
+                }
+            }
+        } else {
+            setClienteAutorizado(null);
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -17,11 +38,9 @@ function ClientAuthScreen({ onAccessGranted }) {
         const numeroLimpio = whatsapp.replace(/\D/g, '');
         const numeroCompleto = `53${numeroLimpio}`;
         
-        // 🔥 CORREGIDO: Usar window. para acceder a las funciones globales
-        // Verificar si ya está autorizado
-        if (window.isClienteAutorizado && window.isClienteAutorizado(numeroCompleto)) {
-            // Si ya está autorizado, accede directamente
-            onAccessGranted(nombre, numeroCompleto);
+        // Si ya está autorizado, accede directamente
+        if (clienteAutorizado) {
+            onAccessGranted(clienteAutorizado.nombre, numeroCompleto);
             return;
         }
         
@@ -31,7 +50,7 @@ function ClientAuthScreen({ onAccessGranted }) {
             return;
         }
         
-        // Agregar a pendientes y notificar al admin
+        // Agregar a pendientes
         if (typeof window.agregarClientePendiente === 'function') {
             const agregado = window.agregarClientePendiente(nombre, numeroCompleto);
             
@@ -43,7 +62,14 @@ function ClientAuthScreen({ onAccessGranted }) {
             }
         } else {
             setError('Error en el sistema. Intentá más tarde.');
-            console.error('agregarClientePendiente no está definida');
+        }
+    };
+
+    const handleAccesoDirecto = () => {
+        if (clienteAutorizado) {
+            const numeroLimpio = whatsapp.replace(/\D/g, '');
+            const numeroCompleto = `53${numeroLimpio}`;
+            onAccessGranted(clienteAutorizado.nombre, numeroCompleto);
         }
     };
 
@@ -133,6 +159,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                                     onChange={(e) => {
                                         const value = e.target.value.replace(/\D/g, '');
                                         setWhatsapp(value);
+                                        verificarNumero(value);
                                     }}
                                     className="w-full px-4 py-3 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"
                                     placeholder="Ej: 54066204"
@@ -142,6 +169,23 @@ function ClientAuthScreen({ onAccessGranted }) {
                             <p className="text-xs text-gray-400 mt-1">Ingresá solo los números después del +53</p>
                         </div>
 
+                        {/* Mensaje si ya está autorizado */}
+                        {clienteAutorizado && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-fade-in">
+                                <div className="flex items-start gap-3">
+                                    <div className="icon-check-circle text-green-600 text-xl"></div>
+                                    <div className="flex-1">
+                                        <p className="text-green-800 font-medium">
+                                            ¡Hola <strong>{clienteAutorizado.nombre}</strong>! Ya tenés acceso.
+                                        </p>
+                                        <p className="text-green-600 text-sm mt-1">
+                                            Hacé clic en el botón de abajo para ingresar directamente.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {error && (
                             <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg flex items-start gap-2">
                                 <div className="icon-triangle-alert mt-0.5"></div>
@@ -149,18 +193,33 @@ function ClientAuthScreen({ onAccessGranted }) {
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105"
-                        >
-                            Solicitar Acceso
-                        </button>
+                        {/* Botón de acceso directo o solicitud */}
+                        {clienteAutorizado ? (
+                            <button
+                                type="button"
+                                onClick={handleAccesoDirecto}
+                                className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition transform hover:scale-105 flex items-center justify-center gap-2"
+                            >
+                                <div className="icon-log-in"></div>
+                                Ingresar a Bennet Salon
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105"
+                            >
+                                Solicitar Acceso
+                            </button>
+                        )}
                     </form>
 
-                    <div className="mt-6 text-xs text-center text-gray-400">
-                        <p>¿Ya tenés acceso?</p>
-                        <p className="mt-1">Contactanos por WhatsApp para verificar</p>
-                    </div>
+                    {/* Mensaje adicional */}
+                    {!clienteAutorizado && (
+                        <div className="mt-6 text-xs text-center text-gray-400">
+                            <p>¿Ya tenés acceso?</p>
+                            <p className="mt-1">Ingresá tu número y si estás autorizado, aparecerá el botón para entrar.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -1,9 +1,9 @@
-// utils/auth-clients.js - VERSIÓN FINAL CON OBJETOS
+// utils/auth-clients.js - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES
 
 console.log('🚀 auth-clients.js CARGADO');
 
 // ============================================
-// ESTRUCTURA DE DATOS (objetos en lugar de strings)
+// ESTRUCTURA DE DATOS
 // ============================================
 let autorizados = [
     { nombre: 'Dueño', whatsapp: '5354066204' }
@@ -20,7 +20,6 @@ try {
         autorizados = JSON.parse(saved);
         console.log('✅ Autorizados cargados:', autorizados);
     } else {
-        // Migrar datos viejos (solo números) a objetos
         const viejos = localStorage.getItem('clientes_autorizados');
         if (viejos) {
             const numeros = JSON.parse(viejos);
@@ -30,7 +29,7 @@ try {
             }));
             guardarAutorizados();
             localStorage.removeItem('clientes_autorizados');
-            console.log('🔄 Migrados autorizados viejos a nuevo formato:', autorizados);
+            console.log('🔄 Migrados autorizados viejos:', autorizados);
         }
     }
 } catch (e) {
@@ -43,13 +42,12 @@ try {
         pendientes = JSON.parse(saved);
         console.log('✅ Pendientes cargados:', pendientes);
     } else {
-        // Migrar datos viejos
         const viejos = localStorage.getItem('clientes_pendientes');
         if (viejos) {
             pendientes = JSON.parse(viejos);
             guardarPendientes();
             localStorage.removeItem('clientes_pendientes');
-            console.log('🔄 Migrados pendientes viejos a nuevo formato:', pendientes);
+            console.log('🔄 Migrados pendientes viejos:', pendientes);
         }
     }
 } catch (e) {
@@ -73,21 +71,21 @@ function guardarAutorizados() {
 // FUNCIONES GLOBALES
 // ============================================
 
-// Obtener clientes pendientes (objetos completos)
+// Obtener clientes pendientes
 window.getClientesPendientes = function() {
     console.log('📋 getClientesPendientes() llamado');
     return [...pendientes];
 };
 
-// 🔥 AHORA DEVUELVE OBJETOS COMPLETOS
+// Obtener clientes autorizados
 window.getClientesAutorizados = function() {
     console.log('📋 getClientesAutorizados() llamado');
     return [...autorizados];
 };
 
-// Verificar si un número está autorizado (y devolver el objeto si existe)
-window.verificarAccesoCliente = function(whatsapp) {
-    return autorizados.find(a => a.whatsapp === whatsapp) || null;
+// Verificar si un número está autorizado (true/false)
+window.isClienteAutorizado = function(whatsapp) {
+    return autorizados.some(a => a.whatsapp === whatsapp);
 };
 
 // Verificar si un número está pendiente
@@ -95,18 +93,21 @@ window.isClientePendiente = function(whatsapp) {
     return pendientes.some(p => p.whatsapp === whatsapp);
 };
 
-// Agregar cliente pendiente (guarda objeto)
+// Verificar acceso (devuelve el objeto si existe)
+window.verificarAccesoCliente = function(whatsapp) {
+    return autorizados.find(a => a.whatsapp === whatsapp) || null;
+};
+
+// Agregar cliente pendiente
 window.agregarClientePendiente = function(nombre, whatsapp) {
     console.log('➕ Agregando cliente pendiente:', { nombre, whatsapp });
     
-    // Verificar si ya existe en autorizados
-    if (autorizados.some(a => a.whatsapp === whatsapp)) {
+    if (window.isClienteAutorizado(whatsapp)) {
         console.log('❌ Cliente ya está autorizado');
         return false;
     }
     
-    // Verificar si ya está pendiente
-    if (pendientes.some(p => p.whatsapp === whatsapp)) {
+    if (window.isClientePendiente(whatsapp)) {
         console.log('❌ Cliente ya está pendiente');
         return false;
     }
@@ -120,7 +121,6 @@ window.agregarClientePendiente = function(nombre, whatsapp) {
     pendientes.push(nuevoCliente);
     guardarPendientes();
     
-    // Notificar al admin
     const adminPhone = "5354066204";
     const text = `🆕 NUEVA SOLICITUD\n\n👤 ${nombre}\n📱 +${whatsapp}`;
     window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(text)}`, '_blank');
@@ -128,7 +128,7 @@ window.agregarClientePendiente = function(nombre, whatsapp) {
     return true;
 };
 
-// Aprobar cliente (mueve de pendientes a autorizados)
+// Aprobar cliente
 window.aprobarCliente = function(whatsapp) {
     console.log('✅ Aprobando cliente:', whatsapp);
     
@@ -147,7 +147,7 @@ window.aprobarCliente = function(whatsapp) {
     return null;
 };
 
-// Rechazar cliente (elimina de pendientes)
+// Rechazar cliente
 window.rechazarCliente = function(whatsapp) {
     console.log('❌ Rechazando cliente:', whatsapp);
     
@@ -165,7 +165,6 @@ window.rechazarCliente = function(whatsapp) {
 window.eliminarClienteAutorizado = function(whatsapp) {
     console.log('🗑️ Eliminando cliente autorizado:', whatsapp);
     
-    // No permitir eliminar al dueño
     if (whatsapp === '5354066204') {
         alert('No se puede eliminar al dueño');
         return null;
@@ -184,19 +183,10 @@ window.eliminarClienteAutorizado = function(whatsapp) {
 console.log('✅ auth-clientes inicializado. Funciones disponibles:', {
     getClientesPendientes: typeof window.getClientesPendientes,
     getClientesAutorizados: typeof window.getClientesAutorizados,
+    isClienteAutorizado: typeof window.isClienteAutorizado,
+    isClientePendiente: typeof window.isClientePendiente,
+    verificarAccesoCliente: typeof window.verificarAccesoCliente,
     aprobarCliente: typeof window.aprobarCliente,
     rechazarCliente: typeof window.rechazarCliente,
     eliminarClienteAutorizado: typeof window.eliminarClienteAutorizado
 });
-
-// ============================================
-// DATOS DE PRUEBA (solo si no hay datos)
-// ============================================
-setTimeout(() => {
-    if (pendientes.length === 0 && autorizados.length === 1) {
-        console.log('🧪 Agregando datos de prueba...');
-        window.agregarClientePendiente('María González', '53555123456');
-        window.agregarClientePendiente('Juan Pérez', '53555678901');
-        window.agregarClientePendiente('Ana López', '53555333333');
-    }
-}, 1000);
