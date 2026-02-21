@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON PESTAÑAS Y RESERVAS)
+// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CORREGIDA)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -48,7 +48,7 @@ function AdminApp() {
     const [filterDate, setFilterDate] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState('activas');
     
-    // 🔥 Pestaña activa (ahora 'reservas' en lugar de 'turnos')
+    // Pestaña activa
     const [tabActivo, setTabActivo] = React.useState('reservas');
     
     // Estados para clientes pendientes
@@ -57,54 +57,80 @@ function AdminApp() {
     const [showClientesAutorizados, setShowClientesAutorizados] = React.useState(false);
     const [clientesAutorizados, setClientesAutorizados] = React.useState([]);
     const [errorClientes, setErrorClientes] = React.useState('');
+    const [cargandoClientes, setCargandoClientes] = React.useState(false);
 
     // ============================================
-    // FUNCIONES DE CLIENTES
+    // FUNCIONES DE CLIENTES (VERSIÓN CORREGIDA)
     // ============================================
-    const loadClientesPendientes = () => {
+    
+    const loadClientesPendientes = async () => {
         console.log('🔄 Cargando clientes pendientes...');
+        setCargandoClientes(true);
         try {
             if (typeof window.getClientesPendientes !== 'function') {
                 console.error('❌ getClientesPendientes no está definida');
                 setErrorClientes('Error: Sistema de clientes no disponible');
+                setClientesPendientes([]);
                 return;
             }
-            const pendientes = window.getClientesPendientes();
+            
+            const pendientes = await window.getClientesPendientes();
             console.log('📋 Pendientes obtenidos:', pendientes);
-            setClientesPendientes(pendientes);
+            
+            if (Array.isArray(pendientes)) {
+                setClientesPendientes(pendientes);
+            } else {
+                console.error('❌ pendientes no es un array:', pendientes);
+                setClientesPendientes([]);
+            }
             setErrorClientes('');
         } catch (error) {
             console.error('Error cargando pendientes:', error);
             setErrorClientes('Error al cargar solicitudes');
+            setClientesPendientes([]);
+        } finally {
+            setCargandoClientes(false);
         }
     };
 
-    const loadClientesAutorizados = () => {
+    const loadClientesAutorizados = async () => {
         console.log('🔄 Cargando clientes autorizados...');
+        setCargandoClientes(true);
         try {
             if (typeof window.getClientesAutorizados !== 'function') {
                 console.error('❌ getClientesAutorizados no está definida');
+                setClientesAutorizados([]);
                 return;
             }
-            const autorizados = window.getClientesAutorizados();
+            
+            const autorizados = await window.getClientesAutorizados();
             console.log('📋 Autorizados obtenidos:', autorizados);
-            setClientesAutorizados(autorizados);
+            
+            if (Array.isArray(autorizados)) {
+                setClientesAutorizados(autorizados);
+            } else {
+                console.error('❌ autorizados no es un array:', autorizados);
+                setClientesAutorizados([]);
+            }
         } catch (error) {
             console.error('Error cargando autorizados:', error);
+            setClientesAutorizados([]);
+        } finally {
+            setCargandoClientes(false);
         }
     };
 
-    const handleAprobarCliente = (whatsapp) => {
+    const handleAprobarCliente = async (whatsapp) => {
         console.log('✅ Aprobando:', whatsapp);
         try {
             if (typeof window.aprobarCliente !== 'function') {
                 alert('Error: Sistema de clientes no disponible');
                 return;
             }
-            const cliente = window.aprobarCliente(whatsapp);
+            const cliente = await window.aprobarCliente(whatsapp);
             if (cliente) {
-                loadClientesPendientes();
-                loadClientesAutorizados();
+                await loadClientesPendientes();
+                await loadClientesAutorizados();
                 alert(`✅ Cliente ${cliente.nombre} aprobado`);
                 const mensaje = `✅ ¡Hola ${cliente.nombre}! Tu acceso a Bennet Salon ha sido APROBADO. Ya podés reservar turnos desde la app.`;
                 window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(mensaje)}`, '_blank');
@@ -115,7 +141,7 @@ function AdminApp() {
         }
     };
 
-    const handleRechazarCliente = (whatsapp) => {
+    const handleRechazarCliente = async (whatsapp) => {
         if (!confirm('¿Rechazar esta solicitud?')) return;
         console.log('❌ Rechazando:', whatsapp);
         try {
@@ -123,9 +149,9 @@ function AdminApp() {
                 alert('Error: Sistema de clientes no disponible');
                 return;
             }
-            const cliente = window.rechazarCliente(whatsapp);
-            if (cliente) {
-                loadClientesPendientes();
+            const resultado = await window.rechazarCliente(whatsapp);
+            if (resultado) {
+                await loadClientesPendientes();
             }
         } catch (error) {
             console.error('Error rechazando:', error);
@@ -133,7 +159,7 @@ function AdminApp() {
         }
     };
 
-    const handleEliminarAutorizado = (whatsapp) => {
+    const handleEliminarAutorizado = async (whatsapp) => {
         if (!confirm('¿Seguro que querés eliminar este cliente autorizado? Perderá el acceso a la app.')) return;
         console.log('🗑️ Eliminando autorizado:', whatsapp);
         try {
@@ -141,10 +167,10 @@ function AdminApp() {
                 alert('Error: Función no disponible');
                 return;
             }
-            const eliminado = window.eliminarClienteAutorizado(whatsapp);
-            if (eliminado) {
-                loadClientesAutorizados();
-                alert(`✅ Cliente ${eliminado.nombre} eliminado`);
+            const resultado = await window.eliminarClienteAutorizado(whatsapp);
+            if (resultado) {
+                await loadClientesAutorizados();
+                alert(`✅ Cliente eliminado`);
             }
         } catch (error) {
             console.error('Error eliminando autorizado:', error);
@@ -288,6 +314,14 @@ function AdminApp() {
                 {/* PESTAÑA: CLIENTES */}
                 {tabActivo === 'clientes' && (
                     <div className="space-y-4">
+                        {/* Indicador de carga */}
+                        {cargandoClientes && (
+                            <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-2">
+                                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                                <span className="text-blue-600">Cargando datos...</span>
+                            </div>
+                        )}
+
                         {/* CLIENTES AUTORIZADOS */}
                         <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
                             <button
@@ -327,6 +361,11 @@ function AdminApp() {
                                                                 <div className="icon-smartphone text-xs"></div>
                                                                 +{cliente.whatsapp}
                                                             </p>
+                                                            {cliente.fecha_aprobacion && (
+                                                                <p className="text-xs text-gray-400 mt-1">
+                                                                   Aprobado: {new Date(cliente.fecha_aprobacion).toLocaleDateString()}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                         {cliente.whatsapp !== '5354066204' && (
                                                             <button
@@ -401,7 +440,7 @@ function AdminApp() {
                                                             </p>
                                                             <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
                                                                 <div className="icon-calendar text-xs"></div>
-                                                                {new Date(cliente.fechaSolicitud).toLocaleString()}
+                                                                {new Date(cliente.fecha_solicitud).toLocaleString()}
                                                             </p>
                                                         </div>
                                                         <div className="flex gap-2">
