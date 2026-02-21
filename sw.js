@@ -1,15 +1,21 @@
-// sw.js - Service Worker para Bennet Salon
+// sw.js - Service Worker con mejor detección de actualizaciones
 
-const CACHE_NAME = 'bennet-salon-v1';
+const CACHE_NAME = 'bennet-salon-v2'; // ⬅️ CAMBIAR EN CADA ACTUALIZACIÓN
+
 const urlsToCache = [
   '/bennet.salon/',
   '/bennet.salon/index.html',
   '/bennet.salon/admin.html',
+  '/bennet.salon/admin-login.html',
   '/bennet.salon/app.js',
   '/bennet.salon/admin-app.js',
   '/bennet.salon/manifest.json',
   '/bennet.salon/utils/api.js',
   '/bennet.salon/utils/timeLogic.js',
+  '/bennet.salon/utils/auth-clients.js',
+  '/bennet.salon/utils/config.js',
+  '/bennet.salon/utils/servicios.js',
+  '/bennet.salon/utils/trabajadoras.js',
   '/bennet.salon/components/Header.js',
   '/bennet.salon/components/WelcomeScreen.js',
   '/bennet.salon/components/ServiceSelection.js',
@@ -18,11 +24,10 @@ const urlsToCache = [
   '/bennet.salon/components/BookingForm.js',
   '/bennet.salon/components/Confirmation.js',
   '/bennet.salon/components/WhatsAppButton.js',
-  'https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js',
-  'https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js',
-  'https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js',
-  'https://cdn.tailwindcss.com',
-  'https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css'
+  '/bennet.salon/components/ClientAuthScreen.js',
+  '/bennet.salon/components/admin/ConfigPanel.js',
+  '/bennet.salon/components/admin/ServiciosPanel.js',
+  '/bennet.salon/components/admin/TrabajadorasPanel.js'
 ];
 
 // Escuchar mensajes para SKIP_WAITING
@@ -40,7 +45,9 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Archivos cacheados');
-        return cache.addAll(urlsToCache);
+        return cache.addAll(urlsToCache).catch(error => {
+          console.error('Error cacheando:', error);
+        });
       })
   );
 });
@@ -59,7 +66,7 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      // Enviar mensaje a TODAS las pestañas abiertas
+      // Enviar mensaje a TODAS las pestañas
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
           client.postMessage({
@@ -72,43 +79,46 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Estrategia de cache
+// Estrategia de cache: Network First para HTML, Cache First para assets
 self.addEventListener('fetch', event => {
   // No cachear peticiones a Supabase
   if (event.request.url.includes('supabase.co')) {
     return;
   }
 
+  // Para archivos HTML, siempre buscar en red primero
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          return caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // Para el resto, cache first con actualización en background
   event.respondWith(
     caches.match(event.request)
       .then(cachedResponse => {
-        if (cachedResponse) {
-          // Actualizar cache en segundo plano
-          fetch(event.request)
-            .then(networkResponse => {
-              if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME)
-                  .then(cache => cache.put(event.request, networkResponse));
-              }
-            })
-            .catch(() => {});
-          return cachedResponse;
-        }
-
-        return fetch(event.request)
-          .then(response => {
-            if (response && response.status === 200) {
-              const responseToCache = response.clone();
+        // Devolver cache mientras se actualiza en segundo plano
+        const fetchPromise = fetch(event.request)
+          .then(networkResponse => {
+            if (networkResponse && networkResponse.status === 200) {
               caches.open(CACHE_NAME)
-                .then(cache => cache.put(event.request, responseToCache));
+                .then(cache => cache.put(event.request, networkResponse.clone()));
             }
-            return response;
+            return networkResponse;
           })
-          .catch(() => {
-            if (event.request.mode === 'navigate') {
-              return caches.match('/bennet.salon/index.html');
-            }
-          });
+          .catch(() => {});
+
+        return cachedResponse || fetchPromise;
       })
   );
 });
