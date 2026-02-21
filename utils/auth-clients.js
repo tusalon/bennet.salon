@@ -1,4 +1,4 @@
-// utils/auth-clients.js - VERSIÓN COMPLETA CON SUPABASE
+// utils/auth-clients.js - VERSIÓN COMPLETA CON SUPABASE Y SIEMPRE ARRAYS
 
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
@@ -145,14 +145,17 @@ window.getClientesPendientes = async function() {
             }
         );
         
-        if (!response.ok) return [];
+        if (!response.ok) {
+            console.error('Error response:', await response.text());
+            return []; // ✅ SIEMPRE DEVOLVER ARRAY
+        }
         
         const data = await response.json();
         console.log('✅ Pendientes obtenidos:', data);
-        return data;
+        return Array.isArray(data) ? data : []; // ✅ ASEGURAR ARRAY
     } catch (error) {
         console.error('Error obteniendo pendientes:', error);
-        return [];
+        return []; // ✅ SIEMPRE DEVOLVER ARRAY
     }
 };
 
@@ -171,14 +174,17 @@ window.getClientesAutorizados = async function() {
             }
         );
         
-        if (!response.ok) return [];
+        if (!response.ok) {
+            console.error('Error response:', await response.text());
+            return []; // ✅ SIEMPRE DEVOLVER ARRAY
+        }
         
         const data = await response.json();
         console.log('✅ Autorizados obtenidos:', data);
-        return data;
+        return Array.isArray(data) ? data : []; // ✅ ASEGURAR ARRAY
     } catch (error) {
         console.error('Error obteniendo autorizados:', error);
-        return [];
+        return []; // ✅ SIEMPRE DEVOLVER ARRAY
     }
 };
 

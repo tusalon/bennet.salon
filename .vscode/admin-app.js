@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON SOPORTE SUPABASE ASYNC)
+// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON FUNCIONES ASYNC CORREGIDAS)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -60,7 +60,7 @@ function AdminApp() {
     const [cargandoClientes, setCargandoClientes] = React.useState(false);
 
     // ============================================
-    // FUNCIONES DE CLIENTES (VERSIÓN ASYNC)
+    // FUNCIONES DE CLIENTES (VERSIÓN ASYNC CORREGIDA)
     // ============================================
     
     const loadClientesPendientes = async () => {
@@ -72,13 +72,21 @@ function AdminApp() {
                 setErrorClientes('Error: Sistema de clientes no disponible');
                 return;
             }
+            
             const pendientes = await window.getClientesPendientes();
             console.log('📋 Pendientes obtenidos:', pendientes);
-            setClientesPendientes(pendientes);
+            
+            if (Array.isArray(pendientes)) {
+                setClientesPendientes(pendientes);
+            } else {
+                console.error('❌ pendientes no es un array:', pendientes);
+                setClientesPendientes([]);
+            }
             setErrorClientes('');
         } catch (error) {
             console.error('Error cargando pendientes:', error);
             setErrorClientes('Error al cargar solicitudes');
+            setClientesPendientes([]);
         } finally {
             setCargandoClientes(false);
         }
@@ -92,11 +100,19 @@ function AdminApp() {
                 console.error('❌ getClientesAutorizados no está definida');
                 return;
             }
+            
             const autorizados = await window.getClientesAutorizados();
             console.log('📋 Autorizados obtenidos:', autorizados);
-            setClientesAutorizados(autorizados);
+            
+            if (Array.isArray(autorizados)) {
+                setClientesAutorizados(autorizados);
+            } else {
+                console.error('❌ autorizados no es un array:', autorizados);
+                setClientesAutorizados([]);
+            }
         } catch (error) {
             console.error('Error cargando autorizados:', error);
+            setClientesAutorizados([]);
         } finally {
             setCargandoClientes(false);
         }

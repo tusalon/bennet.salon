@@ -3,100 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Bennet Salon (DIAGNÓSTICO)</title>
-    
-    <!-- PWA con rutas Bennet Salon -->
-    <link rel="manifest" href="/bennet.salon/manifest.json">
-    <meta name="theme-color" content="#db2777">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Bennet Salon Admin">
-    <link rel="apple-touch-icon" href="/bennet.salon/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/bennet.salon/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="/bennet.salon/icons/icon-512x512.png">
-    
+    <title>Admin - Bennet Salon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
-    
-    <style>
-        .update-banner, .install-banner {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            color: white;
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 9999;
-            animation: slideUp 0.3s ease-out;
-            max-width: 400px;
-            margin: 0 auto;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-        .update-banner { background: #2563eb; }
-        .install-banner { background: #10b981; }
-        .banner-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .banner-icon { font-size: 24px; }
-        .banner-text { flex: 1; }
-        .banner-title {
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-        .banner-subtitle {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-        .banner-button {
-            background: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .update-button { color: #2563eb; }
-        .install-button { color: #10b981; }
-        .close-button {
-            background: transparent;
-            color: white;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0 4px;
-        }
-        @keyframes slideUp {
-            from { transform: translateY(100px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-    </style>
 </head>
 <body class="bg-gray-100">
     <div id="root"></div>
 
-    <!-- Scripts de utilidades -->
+    <!-- Scripts en orden -->
     <script type="text/babel" src="utils/api.js"></script>
     <script type="text/babel" src="utils/timeLogic.js"></script>
     <script type="text/babel" src="utils/auth-clients.js"></script>
     <script type="text/babel" src="utils/config.js"></script>
     <script type="text/babel" src="utils/servicios.js"></script>
     <script type="text/babel" src="utils/trabajadoras.js"></script>
-    
-    <!-- Componentes de admin -->
     <script type="text/babel" src="components/admin/ConfigPanel.js"></script>
     <script type="text/babel" src="components/admin/ServiciosPanel.js"></script>
     <script type="text/babel" src="components/admin/TrabajadorasPanel.js"></script>
-    
-    <!-- App principal (versión de prueba) -->
     <script type="text/babel" src="admin-app.js"></script>
 
     <!-- DIAGNÓSTICO VISIBLE -->
@@ -107,8 +32,8 @@
     </div>
 
     <script>
-        // Diagnóstico visible
-        function actualizarDiagnostico() {
+        // Diagnóstico visible mejorado
+        async function actualizarDiagnostico() {
             const diag = document.getElementById('diagnostico-content');
             if (!diag) return;
             
@@ -127,22 +52,21 @@
             html += `servicios.js: ${typeof window.salonServicios === 'object' ? '✅' : '❌'}\n`;
             html += `trabajadoras.js: ${typeof window.salonTrabajadoras === 'object' ? '✅' : '❌'}\n`;
             
-            // Datos de clientes
+            // Datos de clientes (con async)
             html += `\n👥 DATOS DE CLIENTES:\n`;
             try {
                 if (typeof window.getClientesPendientes === 'function') {
-                    const pendientes = window.getClientesPendientes();
+                    const pendientes = await window.getClientesPendientes();
                     html += `Pendientes: ${pendientes.length}\n`;
-                    if (pendientes.length > 0) {
-                        html += `Primero: ${pendientes[0].nombre} - ${pendientes[0].whatsapp}\n`;
-                    } else {
-                        html += `(vacío)\n`;
-                    }
+                } else {
+                    html += `Pendientes: ⚠️ no disponible\n`;
                 }
                 
                 if (typeof window.getClientesAutorizados === 'function') {
-                    const autorizados = window.getClientesAutorizados();
+                    const autorizados = await window.getClientesAutorizados();
                     html += `Autorizados: ${autorizados.length}\n`;
+                } else {
+                    html += `Autorizados: ⚠️ no disponible\n`;
                 }
             } catch (e) {
                 html += `❌ Error: ${e.message}\n`;
@@ -162,40 +86,33 @@
             // Service Worker
             html += `\n🔄 SERVICE WORKER:\n`;
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(regs => {
-                    html += `Registros: ${regs.length}\n`;
-                    if (regs.length > 0) {
-                        html += `Activo: ✅\n`;
-                    }
-                    diag.innerHTML = html.replace(/\n/g, '<br>');
-                }).catch(() => {
-                    html += `Error al verificar\n`;
-                    diag.innerHTML = html.replace(/\n/g, '<br>');
-                });
+                const regs = await navigator.serviceWorker.getRegistrations();
+                html += `Registros: ${regs.length}\n`;
+                html += `Activo: ${regs.length > 0 ? '✅' : '❌'}\n`;
             } else {
                 html += `No soportado\n`;
-                diag.innerHTML = html.replace(/\n/g, '<br>');
             }
+            
+            diag.innerHTML = html.replace(/\n/g, '<br>');
         }
 
         // Actualizar cada 2 segundos
         setInterval(actualizarDiagnostico, 2000);
         setTimeout(actualizarDiagnostico, 1000);
 
-        // Autenticación (desactivada para diagnóstico)
+        // Autenticación
         (function() {
             const isAuthenticated = localStorage.getItem('adminAuth') === 'true';
             const loginTime = localStorage.getItem('adminLoginTime');
             const isValidSession = loginTime && (Date.now() - parseInt(loginTime)) < 8 * 60 * 60 * 1000;
             
             if (!isAuthenticated || !isValidSession) {
-                // NO redirigir - modo diagnóstico
-                console.log('⚠️ MODO DIAGNÓSTICO - No autenticado');
+                localStorage.removeItem('adminAuth');
+                localStorage.removeItem('adminUser');
+                localStorage.removeItem('adminLoginTime');
+                window.location.href = 'admin-login.html';
             }
         })();
-
-        // Service Worker desactivado para diagnóstico
-        // if ('serviceWorker' in navigator) { ... } (comentado)
     </script>
 </body>
 </html>
