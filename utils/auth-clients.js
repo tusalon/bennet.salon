@@ -1,84 +1,104 @@
-// utils/auth-clients.js - Sistema de autorización de clientes
+// utils/auth-clients.js - VERSIÓN CON ELIMINAR AUTORIZADOS
 
-// Lista de clientes autorizados (números de WhatsApp)
-// Formato: 53XXXXXXXXX (con código de país)
-let CLIENTES_AUTORIZADOS = [
-    '5354066204', // Dueño/tester
-];
+console.log('🚀 auth-clients.js CARGADO');
 
-// Cargar autorizados del localStorage
+// ============================================
+// DATOS
+// ============================================
+let CLIENTES_AUTORIZADOS = ['5354066204']; // Dueño
+let clientesPendientes = [];
+
+// Cargar datos guardados
 try {
     const saved = localStorage.getItem('clientes_autorizados');
     if (saved) {
         CLIENTES_AUTORIZADOS = JSON.parse(saved);
+        console.log('✅ Autorizados cargados:', CLIENTES_AUTORIZADOS);
     }
 } catch (e) {
     console.error('Error cargando autorizados:', e);
 }
 
-// Lista de clientes pendientes de autorización
-let clientesPendientes = [];
-
-// Cargar pendientes del localStorage
 try {
     const saved = localStorage.getItem('clientes_pendientes');
     if (saved) {
         clientesPendientes = JSON.parse(saved);
+        console.log('✅ Pendientes cargados:', clientesPendientes);
     }
 } catch (e) {
     console.error('Error cargando pendientes:', e);
 }
 
-// Guardar pendientes en localStorage
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
 function guardarPendientes() {
     localStorage.setItem('clientes_pendientes', JSON.stringify(clientesPendientes));
+    console.log('💾 Pendientes guardados:', clientesPendientes);
 }
 
-// Guardar autorizados en localStorage
 function guardarAutorizados() {
     localStorage.setItem('clientes_autorizados', JSON.stringify(CLIENTES_AUTORIZADOS));
+    console.log('💾 Autorizados guardados:', CLIENTES_AUTORIZADOS);
 }
 
-// Verificar si un número está autorizado
-function isClienteAutorizado(whatsapp) {
+// ============================================
+// FUNCIONES GLOBALES
+// ============================================
+
+// Obtener clientes pendientes
+window.getClientesPendientes = function() {
+    console.log('📋 getClientesPendientes() llamado');
+    return [...clientesPendientes];
+};
+
+// Obtener clientes autorizados (solo números)
+window.getClientesAutorizados = function() {
+    console.log('📋 getClientesAutorizados() llamado');
+    return [...CLIENTES_AUTORIZADOS];
+};
+
+// Verificar si un cliente está autorizado
+window.isClienteAutorizado = function(whatsapp) {
     return CLIENTES_AUTORIZADOS.includes(whatsapp);
-}
+};
 
-// Verificar si un número está pendiente
-function isClientePendiente(whatsapp) {
+// Verificar si un cliente está pendiente
+window.isClientePendiente = function(whatsapp) {
     return clientesPendientes.some(c => c.whatsapp === whatsapp);
-}
+};
 
-// Agregar cliente a lista de pendientes
-function agregarClientePendiente(nombre, whatsapp) {
-    // Verificar si ya existe
-    if (isClienteAutorizado(whatsapp) || isClientePendiente(whatsapp)) {
+// Agregar cliente pendiente
+window.agregarClientePendiente = function(nombre, whatsapp) {
+    console.log('➕ Agregando cliente pendiente:', { nombre, whatsapp });
+    
+    if (window.isClienteAutorizado(whatsapp) || window.isClientePendiente(whatsapp)) {
+        console.log('❌ Cliente ya existe');
         return false;
     }
     
-    clientesPendientes.push({
-        nombre,
-        whatsapp,
+    const nuevoCliente = {
+        nombre: nombre,
+        whatsapp: whatsapp,
         fechaSolicitud: new Date().toISOString(),
         estado: 'pendiente'
-    });
+    };
     
+    clientesPendientes.push(nuevoCliente);
     guardarPendientes();
     
-    // Enviar notificación al admin por WhatsApp
+    // Notificar al admin
     const adminPhone = "5354066204";
-    const text = `🆕 NUEVA SOLICITUD DE ACCESO\n\n👤 Nombre: ${nombre}\n📱 WhatsApp: +${whatsapp}\n📅 Fecha: ${new Date().toLocaleDateString()}\n⏰ Hora: ${new Date().toLocaleTimeString()}\n\nAprobarlo desde el panel de admin.`;
-    const encodedText = encodeURIComponent(text);
-    
-    setTimeout(() => {
-        window.open(`https://wa.me/${adminPhone}?text=${encodedText}`, '_blank');
-    }, 1000);
+    const text = `🆕 NUEVA SOLICITUD\n\n👤 ${nombre}\n📱 +${whatsapp}`;
+    window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(text)}`, '_blank');
     
     return true;
-}
+};
 
-// Aprobar un cliente pendiente
-function aprobarCliente(whatsapp) {
+// Aprobar cliente
+window.aprobarCliente = function(whatsapp) {
+    console.log('✅ Aprobando cliente:', whatsapp);
+    
     const index = clientesPendientes.findIndex(c => c.whatsapp === whatsapp);
     if (index !== -1) {
         const cliente = clientesPendientes[index];
@@ -89,10 +109,12 @@ function aprobarCliente(whatsapp) {
         return cliente;
     }
     return null;
-}
+};
 
-// Rechazar un cliente pendiente
-function rechazarCliente(whatsapp) {
+// Rechazar cliente
+window.rechazarCliente = function(whatsapp) {
+    console.log('❌ Rechazando cliente:', whatsapp);
+    
     const index = clientesPendientes.findIndex(c => c.whatsapp === whatsapp);
     if (index !== -1) {
         const cliente = clientesPendientes[index];
@@ -101,19 +123,49 @@ function rechazarCliente(whatsapp) {
         return cliente;
     }
     return null;
-}
+};
 
-// Obtener lista de pendientes
-function getClientesPendientes() {
-    return [...clientesPendientes];
-}
+// 🔥 NUEVO: Eliminar cliente autorizado
+window.eliminarClienteAutorizado = function(whatsapp) {
+    console.log('🗑️ Eliminando cliente autorizado:', whatsapp);
+    
+    // No permitir eliminar al dueño
+    if (whatsapp === '5354066204') {
+        alert('No se puede eliminar al dueño');
+        return null;
+    }
+    
+    const index = CLIENTES_AUTORIZADOS.findIndex(w => w === whatsapp);
+    if (index !== -1) {
+        const eliminado = CLIENTES_AUTORIZADOS[index];
+        CLIENTES_AUTORIZADOS.splice(index, 1);
+        guardarAutorizados();
+        return { whatsapp: eliminado };
+    }
+    return null;
+};
 
-// Obtener lista de autorizados
-function getClientesAutorizados() {
-    return [...CLIENTES_AUTORIZADOS];
-}
+// Verificar acceso
+window.verificarAccesoCliente = function(whatsapp) {
+    return window.isClienteAutorizado(whatsapp);
+};
 
-// Verificar acceso para un número
-function verificarAccesoCliente(whatsapp) {
-    return isClienteAutorizado(whatsapp);
-}
+console.log('✅ auth-clientes inicializado. Funciones disponibles:', {
+    getClientesPendientes: typeof window.getClientesPendientes,
+    getClientesAutorizados: typeof window.getClientesAutorizados,
+    aprobarCliente: typeof window.aprobarCliente,
+    rechazarCliente: typeof window.rechazarCliente,
+    eliminarClienteAutorizado: typeof window.eliminarClienteAutorizado
+});
+
+// ============================================
+// DATOS DE PRUEBA (podés eliminarlos después)
+// ============================================
+setTimeout(() => {
+    if (clientesPendientes.length === 0 && CLIENTES_AUTORIZADOS.length === 1) {
+        console.log('🧪 Agregando datos de prueba...');
+        window.agregarClientePendiente('María González', '53555123456');
+        window.agregarClientePendiente('Juan Pérez', '53555678901');
+        window.agregarClientePendiente('Ana López', '53555333333');
+    }
+}, 1000);
