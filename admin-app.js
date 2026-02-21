@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (COMPLETO Y FUNCIONAL)
+// admin-app.js - Bennet Salon (COMPLETO CON CLIENTES AUTORIZADOS)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -51,11 +51,18 @@ function AdminApp() {
     // Estados para clientes pendientes
     const [showClientesPendientes, setShowClientesPendientes] = React.useState(false);
     const [clientesPendientes, setClientesPendientes] = React.useState([]);
+    
+    // 🔥 NUEVO: Estado para clientes autorizados
+    const [showClientesAutorizados, setShowClientesAutorizados] = React.useState(false);
+    const [clientesAutorizados, setClientesAutorizados] = React.useState([]);
+    
     const [errorClientes, setErrorClientes] = React.useState('');
 
     // ============================================
-    // FUNCIONES DE CLIENTES (con window)
+    // FUNCIONES DE CLIENTES
     // ============================================
+    
+    // Cargar clientes pendientes
     const loadClientesPendientes = () => {
         console.log('🔄 Cargando clientes pendientes...');
         
@@ -76,6 +83,39 @@ function AdminApp() {
         }
     };
 
+    // 🔥 NUEVO: Cargar clientes autorizados
+    const loadClientesAutorizados = () => {
+        console.log('🔄 Cargando clientes autorizados...');
+        
+        try {
+            if (typeof window.getClientesAutorizados !== 'function') {
+                console.error('❌ getClientesAutorizados no está definida');
+                return;
+            }
+            
+            // Obtener solo los números
+            const numeros = window.getClientesAutorizados();
+            console.log('📋 Números autorizados:', numeros);
+            
+            // Necesitamos obtener los nombres de algún lado
+            // Por ahora, mostraremos solo los números
+            // Idealmente deberíamos guardar también los nombres cuando se aprueban
+            const autorizadosConNombres = numeros.map(num => {
+                // Buscar si estaba en pendientes (pero ya se borró)
+                // Esta es una solución temporal - idealmente guardaríamos nombre+tel cuando se aprueba
+                return {
+                    whatsapp: num,
+                    nombre: num === '5354066204' ? 'Dueño' : `Cliente ${num.slice(-4)}`
+                };
+            });
+            
+            setClientesAutorizados(autorizadosConNombres);
+        } catch (error) {
+            console.error('Error cargando autorizados:', error);
+        }
+    };
+
+    // Aprobar cliente
     const handleAprobarCliente = (whatsapp) => {
         console.log('✅ Aprobando:', whatsapp);
         
@@ -88,7 +128,12 @@ function AdminApp() {
             const cliente = window.aprobarCliente(whatsapp);
             if (cliente) {
                 loadClientesPendientes();
+                loadClientesAutorizados(); // 🔥 Recargar autorizados
                 alert(`✅ Cliente ${cliente.nombre} aprobado`);
+                
+                // Opcional: Notificar al cliente
+                const mensaje = `✅ ¡Hola ${cliente.nombre}! Tu acceso a Bennet Salon ha sido APROBADO. Ya podés reservar turnos desde la app.`;
+                window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(mensaje)}`, '_blank');
             }
         } catch (error) {
             console.error('Error aprobando:', error);
@@ -96,6 +141,7 @@ function AdminApp() {
         }
     };
 
+    // Rechazar cliente
     const handleRechazarCliente = (whatsapp) => {
         if (!confirm('¿Rechazar esta solicitud?')) return;
         
@@ -117,6 +163,29 @@ function AdminApp() {
         }
     };
 
+    // 🔥 NUEVO: Eliminar cliente autorizado (VERSIÓN FUNCIONAL)
+const handleEliminarAutorizado = (whatsapp) => {
+    if (!confirm('¿Seguro que querés eliminar este cliente autorizado? Perderá el acceso a la app.')) return;
+    
+    console.log('🗑️ Eliminando autorizado:', whatsapp);
+    
+    try {
+        if (typeof window.eliminarClienteAutorizado !== 'function') {
+            alert('Error: Función no disponible');
+            return;
+        }
+        
+        const eliminado = window.eliminarClienteAutorizado(whatsapp);
+        if (eliminado) {
+            loadClientesAutorizados();
+            alert(`✅ Cliente ${eliminado.nombre} eliminado`);
+        }
+    } catch (error) {
+        console.error('Error eliminando autorizado:', error);
+        alert('Error al eliminar cliente');
+    }
+};
+
     // ============================================
     // FUNCIONES DE TURNOS
     // ============================================
@@ -136,12 +205,14 @@ function AdminApp() {
 
     React.useEffect(() => {
         fetchBookings();
+        loadClientesAutorizados(); // 🔥 Cargar autorizados al inicio
         
         // Verificar funciones de auth
         console.log('🔍 Verificando auth:', {
             getClientesPendientes: typeof window.getClientesPendientes,
             aprobarCliente: typeof window.aprobarCliente,
-            rechazarCliente: typeof window.rechazarCliente
+            rechazarCliente: typeof window.rechazarCliente,
+            getClientesAutorizados: typeof window.getClientesAutorizados
         });
     }, []);
 
@@ -219,8 +290,65 @@ function AdminApp() {
                     </div>
                 </div>
 
+                {/* ===== CLIENTES AUTORIZADOS (NUEVO) ===== */}
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                    <button
+                        onClick={() => {
+                            setShowClientesAutorizados(!showClientesAutorizados);
+                            if (!showClientesAutorizados) loadClientesAutorizados();
+                        }}
+                        className="flex items-center justify-between w-full"
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="icon-check-circle text-green-500"></div>
+                            <span className="font-medium">Clientes Autorizados</span>
+                            <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+                                {clientesAutorizados.length}
+                            </span>
+                        </div>
+                        <div className={`transform transition-transform ${showClientesAutorizados ? 'rotate-180' : ''}`}>
+                            <div className="icon-chevron-down"></div>
+                        </div>
+                    </button>
+                    
+                    {showClientesAutorizados && (
+                        <div className="mt-4">
+                            <div className="space-y-3 max-h-80 overflow-y-auto">
+                                {clientesAutorizados.length === 0 ? (
+                                    <div className="text-center py-6 text-gray-500">
+                                        <div className="icon-users text-3xl text-gray-300 mb-2"></div>
+                                        <p>No hay clientes autorizados</p>
+                                    </div>
+                                ) : (
+                                    clientesAutorizados.map((cliente, index) => (
+                                        <div key={index} className="bg-gradient-to-r from-green-50 to-white p-4 rounded-lg border border-green-200 shadow-sm">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-bold text-gray-800 text-lg">{cliente.nombre}</p>
+                                                    <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                                        <div className="icon-smartphone text-xs"></div>
+                                                        +{cliente.whatsapp}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleEliminarAutorizado(cliente.whatsapp)}
+                                                    className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
+                                                    title="Eliminar acceso"
+                                                >
+                                                    <div className="icon-trash-2"></div>
+                                                    Quitar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* ===== CLIENTES PENDIENTES ===== */}
-                <div className="bg-white p-4 rounded-xl shadow-sm">
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
                     <button
                         onClick={() => {
                             setShowClientesPendientes(!showClientesPendientes);
@@ -229,18 +357,16 @@ function AdminApp() {
                         className="flex items-center justify-between w-full"
                     >
                         <div className="flex items-center gap-2">
-                            <div className="icon-users text-pink-500"></div>
-                            <span className="font-medium">Solicitudes de Clientes</span>
-                        </div>
-                        <div className="flex items-center gap-2">
+                            <div className="icon-users text-yellow-500"></div>
+                            <span className="font-medium">Solicitudes Pendientes</span>
                             {clientesPendientes.length > 0 && (
                                 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                                    {clientesPendientes.length} nueva{clientesPendientes.length !== 1 ? 's' : ''}
+                                    {clientesPendientes.length}
                                 </span>
                             )}
-                            <div className={`transform transition-transform ${showClientesPendientes ? 'rotate-180' : ''}`}>
-                                <div className="icon-chevron-down"></div>
-                            </div>
+                        </div>
+                        <div className={`transform transition-transform ${showClientesPendientes ? 'rotate-180' : ''}`}>
+                            <div className="icon-chevron-down"></div>
                         </div>
                     </button>
                     
@@ -257,11 +383,10 @@ function AdminApp() {
                                     <div className="text-center py-6 text-gray-500">
                                         <div className="icon-check-circle text-3xl text-green-300 mb-2"></div>
                                         <p>No hay solicitudes pendientes</p>
-                                        <p className="text-xs mt-2">Los nuevos clientes aparecerán aquí</p>
                                     </div>
                                 ) : (
                                     clientesPendientes.map((cliente, index) => (
-                                        <div key={index} className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                        <div key={index} className="bg-gradient-to-r from-yellow-50 to-white p-4 rounded-lg border border-yellow-200 shadow-sm">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-bold text-gray-800 text-lg">{cliente.nombre}</p>
@@ -299,7 +424,7 @@ function AdminApp() {
                     )}
                 </div>
 
-                {/* ===== FILTROS ===== */}
+                {/* ===== FILTROS DE TURNOS ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
                     <div className="flex flex-wrap gap-3 items-center">
                         <div className="flex items-center gap-2">
@@ -369,7 +494,7 @@ function AdminApp() {
                     </div>
                 </div>
 
-                {/* ===== LISTADO DE TURNOS ===== */}
+                {/* ===== LISTADO DE TURNOS (igual que antes) ===== */}
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
