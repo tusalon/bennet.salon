@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (COMPLETO CON PESTAÑAS Y NUEVAS SECCIONES)
+// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON PESTAÑAS Y RESERVAS)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -48,8 +48,8 @@ function AdminApp() {
     const [filterDate, setFilterDate] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState('activas');
     
-    // 🔥 NUEVO: Pestaña activa
-    const [tabActivo, setTabActivo] = React.useState('turnos');
+    // 🔥 Pestaña activa (ahora 'reservas' en lugar de 'turnos')
+    const [tabActivo, setTabActivo] = React.useState('reservas');
     
     // Estados para clientes pendientes
     const [showClientesPendientes, setShowClientesPendientes] = React.useState(false);
@@ -153,7 +153,7 @@ function AdminApp() {
     };
 
     // ============================================
-    // FUNCIONES DE TURNOS
+    // FUNCIONES DE RESERVAS
     // ============================================
     const fetchBookings = async () => {
         setLoading(true);
@@ -163,7 +163,7 @@ function AdminApp() {
             setBookings(data);
         } catch (error) {
             console.error('Error fetching bookings:', error);
-            alert('Error al cargar los turnos');
+            alert('Error al cargar las reservas');
         } finally {
             setLoading(false);
         }
@@ -182,12 +182,12 @@ function AdminApp() {
     }, []);
 
     const handleCancel = async (id, bookingData) => {
-        if (!confirm(`¿Cancelar turno de ${bookingData.cliente_nombre}?`)) return;
+        if (!confirm(`¿Cancelar reserva de ${bookingData.cliente_nombre}?`)) return;
         const ok = await cancelBooking(id);
         if (ok) {
-            const msg = `❌ Turno cancelado\n\n${bookingData.cliente_nombre}, tu turno del ${bookingData.fecha} a las ${formatTo12Hour(bookingData.hora_inicio)} fue cancelado.`;
+            const msg = `❌ Reserva cancelada\n\n${bookingData.cliente_nombre}, tu reserva del ${bookingData.fecha} a las ${formatTo12Hour(bookingData.hora_inicio)} fue cancelada.`;
             window.open(`https://wa.me/${bookingData.cliente_whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
-            alert('✅ Turno cancelado');
+            alert('✅ Reserva cancelada');
             fetchBookings();
         } else {
             alert('❌ Error al cancelar');
@@ -253,7 +253,7 @@ function AdminApp() {
                 {/* ===== PESTAÑAS DE NAVEGACIÓN ===== */}
                 <div className="bg-white p-2 rounded-xl shadow-sm flex flex-wrap gap-2">
                     {[
-                        { id: 'turnos', icono: '📅', label: 'Turnos' },
+                        { id: 'reservas', icono: '📅', label: 'Reservas' },
                         { id: 'configuracion', icono: '⚙️', label: 'Configuración' },
                         { id: 'servicios', icono: '💅', label: 'Servicios' },
                         { id: 'trabajadoras', icono: '👥', label: 'Trabajadoras' },
@@ -277,19 +277,13 @@ function AdminApp() {
                 {/* ===== CONTENIDO SEGÚN PESTAÑA ===== */}
                 
                 {/* PESTAÑA: CONFIGURACIÓN */}
-                {tabActivo === 'configuracion' && (
-                    <ConfigPanel />
-                )}
+                {tabActivo === 'configuracion' && <ConfigPanel />}
 
                 {/* PESTAÑA: SERVICIOS */}
-                {tabActivo === 'servicios' && (
-                    <ServiciosPanel />
-                )}
+                {tabActivo === 'servicios' && <ServiciosPanel />}
 
                 {/* PESTAÑA: TRABAJADORAS */}
-                {tabActivo === 'trabajadoras' && (
-                    <TrabajadorasPanel />
-                )}
+                {tabActivo === 'trabajadoras' && <TrabajadorasPanel />}
 
                 {/* PESTAÑA: CLIENTES */}
                 {tabActivo === 'clientes' && (
@@ -437,10 +431,10 @@ function AdminApp() {
                     </div>
                 )}
 
-                {/* PESTAÑA: TURNOS (por defecto) */}
-                {tabActivo === 'turnos' && (
+                {/* PESTAÑA: RESERVAS */}
+                {tabActivo === 'reservas' && (
                     <>
-                        {/* FILTROS DE TURNOS */}
+                        {/* FILTROS DE RESERVAS */}
                         <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
                             <div className="flex flex-wrap gap-3 items-center">
                                 <div className="flex items-center gap-2">
@@ -502,7 +496,7 @@ function AdminApp() {
                             </div>
 
                             <div className="text-sm text-gray-500 border-t pt-2 mt-1">
-                                Mostrando: <span className="font-bold text-pink-600">{filteredBookings.length}</span> turnos
+                                Mostrando: <span className="font-bold text-pink-600">{filteredBookings.length}</span> reservas
                                 {filterDate && <span> • Fecha: {filterDate}</span>}
                                 {statusFilter !== 'todas' && (
                                     <span> • {statusFilter === 'activas' ? 'Activas' : 'Canceladas'}</span>
@@ -510,11 +504,11 @@ function AdminApp() {
                             </div>
                         </div>
 
-                        {/* LISTADO DE TURNOS */}
+                        {/* LISTADO DE RESERVAS */}
                         {loading ? (
                             <div className="text-center py-12">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
-                                <p className="text-gray-500 mt-4">Cargando turnos...</p>
+                                <p className="text-gray-500 mt-4">Cargando reservas...</p>
                             </div>
                         ) : (
                             <>
@@ -564,7 +558,7 @@ function AdminApp() {
                                     {filteredBookings.length === 0 && (
                                         <div className="text-center py-12 bg-white rounded-xl">
                                             <div className="icon-calendar-x text-4xl text-gray-300 mb-2"></div>
-                                            <p className="text-gray-500">No hay turnos para mostrar</p>
+                                            <p className="text-gray-500">No hay reservas para mostrar</p>
                                         </div>
                                     )}
                                 </div>
@@ -627,7 +621,7 @@ function AdminApp() {
                                                 <tr>
                                                     <td colSpan="6" className="text-center py-12 text-gray-500">
                                                         <div className="icon-calendar-x text-3xl text-gray-300 mb-2"></div>
-                                                        No hay turnos para mostrar
+                                                        No hay reservas para mostrar
                                                     </td>
                                                 </tr>
                                             )}
