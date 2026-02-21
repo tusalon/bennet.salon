@@ -1,11 +1,14 @@
-// admin-app.js - Bennet Salon (con filtros, clientes pendientes y mejoras)
+// admin-app.js - Bennet Salon (COMPLETO Y FUNCIONAL)
 
-// 🔥 USAR LA MISMA CONFIGURACIÓN QUE api.js
+// 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
 
 const TABLE_NAME = 'benettsalon';
 
+// ============================================
+// FUNCIONES DE SUPABASE
+// ============================================
 async function getAllBookings() {
     const res = await fetch(
         `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=fecha.desc,hora_inicio.asc`,
@@ -35,26 +38,111 @@ async function cancelBooking(id) {
     return res.ok;
 }
 
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 function AdminApp() {
+    // Estados principales
     const [bookings, setBookings] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [filterDate, setFilterDate] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState('activas');
     
-    // 🔥 Estado para clientes pendientes
+    // Estados para clientes pendientes
     const [showClientesPendientes, setShowClientesPendientes] = React.useState(false);
     const [clientesPendientes, setClientesPendientes] = React.useState([]);
+    const [errorClientes, setErrorClientes] = React.useState('');
 
+    // ============================================
+    // FUNCIONES DE CLIENTES (con window)
+    // ============================================
+    const loadClientesPendientes = () => {
+        console.log('🔄 Cargando clientes pendientes...');
+        
+        try {
+            if (typeof window.getClientesPendientes !== 'function') {
+                console.error('❌ getClientesPendientes no está definida');
+                setErrorClientes('Error: Sistema de clientes no disponible');
+                return;
+            }
+            
+            const pendientes = window.getClientesPendientes();
+            console.log('📋 Pendientes obtenidos:', pendientes);
+            setClientesPendientes(pendientes);
+            setErrorClientes('');
+        } catch (error) {
+            console.error('Error cargando pendientes:', error);
+            setErrorClientes('Error al cargar solicitudes');
+        }
+    };
+
+    const handleAprobarCliente = (whatsapp) => {
+        console.log('✅ Aprobando:', whatsapp);
+        
+        try {
+            if (typeof window.aprobarCliente !== 'function') {
+                alert('Error: Sistema de clientes no disponible');
+                return;
+            }
+            
+            const cliente = window.aprobarCliente(whatsapp);
+            if (cliente) {
+                loadClientesPendientes();
+                alert(`✅ Cliente ${cliente.nombre} aprobado`);
+            }
+        } catch (error) {
+            console.error('Error aprobando:', error);
+            alert('Error al aprobar cliente');
+        }
+    };
+
+    const handleRechazarCliente = (whatsapp) => {
+        if (!confirm('¿Rechazar esta solicitud?')) return;
+        
+        console.log('❌ Rechazando:', whatsapp);
+        
+        try {
+            if (typeof window.rechazarCliente !== 'function') {
+                alert('Error: Sistema de clientes no disponible');
+                return;
+            }
+            
+            const cliente = window.rechazarCliente(whatsapp);
+            if (cliente) {
+                loadClientesPendientes();
+            }
+        } catch (error) {
+            console.error('Error rechazando:', error);
+            alert('Error al rechazar cliente');
+        }
+    };
+
+    // ============================================
+    // FUNCIONES DE TURNOS
+    // ============================================
     const fetchBookings = async () => {
         setLoading(true);
-        const data = await getAllBookings();
-        data.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
-        setBookings(data);
-        setLoading(false);
+        try {
+            const data = await getAllBookings();
+            data.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
+            setBookings(data);
+        } catch (error) {
+            console.error('Error fetching bookings:', error);
+            alert('Error al cargar los turnos');
+        } finally {
+            setLoading(false);
+        }
     };
 
     React.useEffect(() => {
         fetchBookings();
+        
+        // Verificar funciones de auth
+        console.log('🔍 Verificando auth:', {
+            getClientesPendientes: typeof window.getClientesPendientes,
+            aprobarCliente: typeof window.aprobarCliente,
+            rechazarCliente: typeof window.rechazarCliente
+        });
     }, []);
 
     const handleCancel = async (id, bookingData) => {
@@ -73,7 +161,6 @@ function AdminApp() {
         }
     };
 
-    // 🔥 Función para cerrar sesión
     const handleLogout = () => {
         if (confirm('¿Cerrar sesión?')) {
             localStorage.removeItem('adminAuth');
@@ -83,35 +170,9 @@ function AdminApp() {
         }
     };
 
-    // 🔥 Cargar clientes pendientes
-    const loadClientesPendientes = () => {
-        setClientesPendientes(getClientesPendientes());
-    };
-
-    // 🔥 Aprobar cliente
-    const handleAprobarCliente = (whatsapp) => {
-        const cliente = aprobarCliente(whatsapp);
-        if (cliente) {
-            loadClientesPendientes();
-            alert(`✅ Cliente ${cliente.nombre} aprobado`);
-            
-            // Opcional: notificar al cliente por WhatsApp
-            const msg = `✅ ¡Hola ${cliente.nombre}! Tu acceso a Bennet Salon ha sido aprobado. Ya podés reservar turnos desde la app.`;
-            window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
-        }
-    };
-
-    // 🔥 Rechazar cliente
-    const handleRechazarCliente = (whatsapp) => {
-        if (confirm('¿Rechazar esta solicitud?')) {
-            const cliente = rechazarCliente(whatsapp);
-            if (cliente) {
-                loadClientesPendientes();
-            }
-        }
-    };
-
-    // 🔥 Filtrar reservas según los criterios
+    // ============================================
+    // FILTROS
+    // ============================================
     const getFilteredBookings = () => {
         let filtered = filterDate
             ? bookings.filter(b => b.fecha === filterDate)
@@ -126,19 +187,26 @@ function AdminApp() {
         return filtered;
     };
 
-    // 🔥 Contadores
     const activasCount = bookings.filter(b => b.estado !== 'Cancelado').length;
     const canceladasCount = bookings.filter(b => b.estado === 'Cancelado').length;
     const filteredBookings = getFilteredBookings();
 
+    // ============================================
+    // RENDER (JSX)
+    // ============================================
     return (
         <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
             <div className="max-w-6xl mx-auto space-y-4">
-                {/* Header del panel */}
+                
+                {/* ===== HEADER ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
                     <h1 className="text-xl font-bold">Panel Admin - Bennet Salon</h1>
                     <div className="flex gap-2">
-                        <button onClick={fetchBookings} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200" title="Actualizar">
+                        <button 
+                            onClick={fetchBookings} 
+                            className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"
+                            title="Actualizar"
+                        >
                             <div className="icon-refresh-cw"></div>
                         </button>
                         <button 
@@ -151,7 +219,7 @@ function AdminApp() {
                     </div>
                 </div>
 
-                {/* 🔥 SECCIÓN DE CLIENTES PENDIENTES */}
+                {/* ===== CLIENTES PENDIENTES ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                     <button
                         onClick={() => {
@@ -177,56 +245,62 @@ function AdminApp() {
                     </button>
                     
                     {showClientesPendientes && (
-                        <div className="mt-4 space-y-3 max-h-80 overflow-y-auto">
-                            {clientesPendientes.length === 0 ? (
-                                <div className="text-center py-6 text-gray-500">
-                                    <div className="icon-check-circle text-3xl text-green-300 mb-2"></div>
-                                    <p>No hay solicitudes pendientes</p>
+                        <div className="mt-4">
+                            {errorClientes && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">
+                                    {errorClientes}
                                 </div>
-                            ) : (
-                                clientesPendientes.map((cliente, index) => (
-                                    <div key={index} className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-bold text-gray-800 text-lg">{cliente.nombre}</p>
-                                                <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                                                    <div className="icon-smartphone text-xs"></div>
-                                                    +{cliente.whatsapp}
-                                                </p>
-                                                <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                                                    <div className="icon-calendar text-xs"></div>
-                                                    Solicitó: {new Date(cliente.fechaSolicitud).toLocaleString()}
-                                                </p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleAprobarCliente(cliente.whatsapp)}
-                                                    className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
-                                                    title="Aprobar acceso"
-                                                >
-                                                    <div className="icon-check"></div>
-                                                    Aprobar
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRechazarCliente(cliente.whatsapp)}
-                                                    className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
-                                                    title="Rechazar solicitud"
-                                                >
-                                                    <div className="icon-x"></div>
-                                                    Rechazar
-                                                </button>
+                            )}
+                            
+                            <div className="space-y-3 max-h-80 overflow-y-auto">
+                                {clientesPendientes.length === 0 ? (
+                                    <div className="text-center py-6 text-gray-500">
+                                        <div className="icon-check-circle text-3xl text-green-300 mb-2"></div>
+                                        <p>No hay solicitudes pendientes</p>
+                                        <p className="text-xs mt-2">Los nuevos clientes aparecerán aquí</p>
+                                    </div>
+                                ) : (
+                                    clientesPendientes.map((cliente, index) => (
+                                        <div key={index} className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-bold text-gray-800 text-lg">{cliente.nombre}</p>
+                                                    <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                                        <div className="icon-smartphone text-xs"></div>
+                                                        +{cliente.whatsapp}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                                        <div className="icon-calendar text-xs"></div>
+                                                        {new Date(cliente.fechaSolicitud).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleAprobarCliente(cliente.whatsapp)}
+                                                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
+                                                    >
+                                                        <div className="icon-check"></div>
+                                                        Aprobar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRechazarCliente(cliente.whatsapp)}
+                                                        className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
+                                                    >
+                                                        <div className="icon-x"></div>
+                                                        Rechazar
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Filtros */}
+                {/* ===== FILTROS ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
-                    {/* Filtro por fecha */}
                     <div className="flex flex-wrap gap-3 items-center">
                         <div className="flex items-center gap-2">
                             <div className="icon-calendar text-gray-400"></div>
@@ -247,7 +321,6 @@ function AdminApp() {
                         </div>
                     </div>
 
-                    {/* Filtro por estado */}
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => setStatusFilter('activas')}
@@ -287,7 +360,6 @@ function AdminApp() {
                         </button>
                     </div>
 
-                    {/* Total mostrado */}
                     <div className="text-sm text-gray-500 border-t pt-2 mt-1">
                         Mostrando: <span className="font-bold text-pink-600">{filteredBookings.length}</span> turnos
                         {filterDate && <span> • Fecha: {filterDate}</span>}
@@ -297,6 +369,7 @@ function AdminApp() {
                     </div>
                 </div>
 
+                {/* ===== LISTADO DE TURNOS ===== */}
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
@@ -336,8 +409,10 @@ function AdminApp() {
                                             {b.estado}
                                         </span>
                                         {b.estado === 'Reservado' && (
-                                            <button onClick={() => handleCancel(b.id, b)} 
-                                                    className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105">
+                                            <button 
+                                                onClick={() => handleCancel(b.id, b)} 
+                                                className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105"
+                                            >
                                                 Cancelar
                                             </button>
                                         )}
@@ -396,8 +471,10 @@ function AdminApp() {
                                             </td>
                                             <td>
                                                 {b.estado === 'Reservado' && (
-                                                    <button onClick={() => handleCancel(b.id, b)} 
-                                                            className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105">
+                                                    <button 
+                                                        onClick={() => handleCancel(b.id, b)} 
+                                                        className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105"
+                                                    >
                                                         Cancelar
                                                     </button>
                                                 )}
@@ -423,5 +500,8 @@ function AdminApp() {
     );
 }
 
+// ============================================
+// RENDER
+// ============================================
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<AdminApp />);
