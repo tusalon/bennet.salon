@@ -1,29 +1,56 @@
-// utils/auth-clients.js - VERSIÓN CON ELIMINAR AUTORIZADOS
+// utils/auth-clients.js - VERSIÓN FINAL CON OBJETOS
 
 console.log('🚀 auth-clients.js CARGADO');
 
 // ============================================
-// DATOS
+// ESTRUCTURA DE DATOS (objetos en lugar de strings)
 // ============================================
-let CLIENTES_AUTORIZADOS = ['5354066204']; // Dueño
-let clientesPendientes = [];
+let autorizados = [
+    { nombre: 'Dueño', whatsapp: '5354066204' }
+];
 
-// Cargar datos guardados
+let pendientes = [];
+
+// ============================================
+// CARGAR DATOS GUARDADOS
+// ============================================
 try {
-    const saved = localStorage.getItem('clientes_autorizados');
+    const saved = localStorage.getItem('autorizados_con_nombres');
     if (saved) {
-        CLIENTES_AUTORIZADOS = JSON.parse(saved);
-        console.log('✅ Autorizados cargados:', CLIENTES_AUTORIZADOS);
+        autorizados = JSON.parse(saved);
+        console.log('✅ Autorizados cargados:', autorizados);
+    } else {
+        // Migrar datos viejos (solo números) a objetos
+        const viejos = localStorage.getItem('clientes_autorizados');
+        if (viejos) {
+            const numeros = JSON.parse(viejos);
+            autorizados = numeros.map(num => ({ 
+                nombre: num === '5354066204' ? 'Dueño' : `Cliente ${num.slice(-4)}`, 
+                whatsapp: num 
+            }));
+            guardarAutorizados();
+            localStorage.removeItem('clientes_autorizados');
+            console.log('🔄 Migrados autorizados viejos a nuevo formato:', autorizados);
+        }
     }
 } catch (e) {
     console.error('Error cargando autorizados:', e);
 }
 
 try {
-    const saved = localStorage.getItem('clientes_pendientes');
+    const saved = localStorage.getItem('pendientes_con_nombres');
     if (saved) {
-        clientesPendientes = JSON.parse(saved);
-        console.log('✅ Pendientes cargados:', clientesPendientes);
+        pendientes = JSON.parse(saved);
+        console.log('✅ Pendientes cargados:', pendientes);
+    } else {
+        // Migrar datos viejos
+        const viejos = localStorage.getItem('clientes_pendientes');
+        if (viejos) {
+            pendientes = JSON.parse(viejos);
+            guardarPendientes();
+            localStorage.removeItem('clientes_pendientes');
+            console.log('🔄 Migrados pendientes viejos a nuevo formato:', pendientes);
+        }
     }
 } catch (e) {
     console.error('Error cargando pendientes:', e);
@@ -33,58 +60,64 @@ try {
 // FUNCIONES AUXILIARES
 // ============================================
 function guardarPendientes() {
-    localStorage.setItem('clientes_pendientes', JSON.stringify(clientesPendientes));
-    console.log('💾 Pendientes guardados:', clientesPendientes);
+    localStorage.setItem('pendientes_con_nombres', JSON.stringify(pendientes));
+    console.log('💾 Pendientes guardados:', pendientes);
 }
 
 function guardarAutorizados() {
-    localStorage.setItem('clientes_autorizados', JSON.stringify(CLIENTES_AUTORIZADOS));
-    console.log('💾 Autorizados guardados:', CLIENTES_AUTORIZADOS);
+    localStorage.setItem('autorizados_con_nombres', JSON.stringify(autorizados));
+    console.log('💾 Autorizados guardados:', autorizados);
 }
 
 // ============================================
 // FUNCIONES GLOBALES
 // ============================================
 
-// Obtener clientes pendientes
+// Obtener clientes pendientes (objetos completos)
 window.getClientesPendientes = function() {
     console.log('📋 getClientesPendientes() llamado');
-    return [...clientesPendientes];
+    return [...pendientes];
 };
 
-// Obtener clientes autorizados (solo números)
+// 🔥 AHORA DEVUELVE OBJETOS COMPLETOS
 window.getClientesAutorizados = function() {
     console.log('📋 getClientesAutorizados() llamado');
-    return [...CLIENTES_AUTORIZADOS];
+    return [...autorizados];
 };
 
-// Verificar si un cliente está autorizado
-window.isClienteAutorizado = function(whatsapp) {
-    return CLIENTES_AUTORIZADOS.includes(whatsapp);
+// Verificar si un número está autorizado (y devolver el objeto si existe)
+window.verificarAccesoCliente = function(whatsapp) {
+    return autorizados.find(a => a.whatsapp === whatsapp) || null;
 };
 
-// Verificar si un cliente está pendiente
+// Verificar si un número está pendiente
 window.isClientePendiente = function(whatsapp) {
-    return clientesPendientes.some(c => c.whatsapp === whatsapp);
+    return pendientes.some(p => p.whatsapp === whatsapp);
 };
 
-// Agregar cliente pendiente
+// Agregar cliente pendiente (guarda objeto)
 window.agregarClientePendiente = function(nombre, whatsapp) {
     console.log('➕ Agregando cliente pendiente:', { nombre, whatsapp });
     
-    if (window.isClienteAutorizado(whatsapp) || window.isClientePendiente(whatsapp)) {
-        console.log('❌ Cliente ya existe');
+    // Verificar si ya existe en autorizados
+    if (autorizados.some(a => a.whatsapp === whatsapp)) {
+        console.log('❌ Cliente ya está autorizado');
+        return false;
+    }
+    
+    // Verificar si ya está pendiente
+    if (pendientes.some(p => p.whatsapp === whatsapp)) {
+        console.log('❌ Cliente ya está pendiente');
         return false;
     }
     
     const nuevoCliente = {
         nombre: nombre,
         whatsapp: whatsapp,
-        fechaSolicitud: new Date().toISOString(),
-        estado: 'pendiente'
+        fechaSolicitud: new Date().toISOString()
     };
     
-    clientesPendientes.push(nuevoCliente);
+    pendientes.push(nuevoCliente);
     guardarPendientes();
     
     // Notificar al admin
@@ -95,15 +128,18 @@ window.agregarClientePendiente = function(nombre, whatsapp) {
     return true;
 };
 
-// Aprobar cliente
+// Aprobar cliente (mueve de pendientes a autorizados)
 window.aprobarCliente = function(whatsapp) {
     console.log('✅ Aprobando cliente:', whatsapp);
     
-    const index = clientesPendientes.findIndex(c => c.whatsapp === whatsapp);
+    const index = pendientes.findIndex(p => p.whatsapp === whatsapp);
     if (index !== -1) {
-        const cliente = clientesPendientes[index];
-        CLIENTES_AUTORIZADOS.push(whatsapp);
-        clientesPendientes.splice(index, 1);
+        const cliente = pendientes[index];
+        autorizados.push({
+            nombre: cliente.nombre,
+            whatsapp: cliente.whatsapp
+        });
+        pendientes.splice(index, 1);
         guardarPendientes();
         guardarAutorizados();
         return cliente;
@@ -111,21 +147,21 @@ window.aprobarCliente = function(whatsapp) {
     return null;
 };
 
-// Rechazar cliente
+// Rechazar cliente (elimina de pendientes)
 window.rechazarCliente = function(whatsapp) {
     console.log('❌ Rechazando cliente:', whatsapp);
     
-    const index = clientesPendientes.findIndex(c => c.whatsapp === whatsapp);
+    const index = pendientes.findIndex(p => p.whatsapp === whatsapp);
     if (index !== -1) {
-        const cliente = clientesPendientes[index];
-        clientesPendientes.splice(index, 1);
+        const cliente = pendientes[index];
+        pendientes.splice(index, 1);
         guardarPendientes();
         return cliente;
     }
     return null;
 };
 
-// 🔥 NUEVO: Eliminar cliente autorizado
+// Eliminar cliente autorizado
 window.eliminarClienteAutorizado = function(whatsapp) {
     console.log('🗑️ Eliminando cliente autorizado:', whatsapp);
     
@@ -135,19 +171,14 @@ window.eliminarClienteAutorizado = function(whatsapp) {
         return null;
     }
     
-    const index = CLIENTES_AUTORIZADOS.findIndex(w => w === whatsapp);
+    const index = autorizados.findIndex(a => a.whatsapp === whatsapp);
     if (index !== -1) {
-        const eliminado = CLIENTES_AUTORIZADOS[index];
-        CLIENTES_AUTORIZADOS.splice(index, 1);
+        const eliminado = autorizados[index];
+        autorizados.splice(index, 1);
         guardarAutorizados();
-        return { whatsapp: eliminado };
+        return eliminado;
     }
     return null;
-};
-
-// Verificar acceso
-window.verificarAccesoCliente = function(whatsapp) {
-    return window.isClienteAutorizado(whatsapp);
 };
 
 console.log('✅ auth-clientes inicializado. Funciones disponibles:', {
@@ -159,10 +190,10 @@ console.log('✅ auth-clientes inicializado. Funciones disponibles:', {
 });
 
 // ============================================
-// DATOS DE PRUEBA (podés eliminarlos después)
+// DATOS DE PRUEBA (solo si no hay datos)
 // ============================================
 setTimeout(() => {
-    if (clientesPendientes.length === 0 && CLIENTES_AUTORIZADOS.length === 1) {
+    if (pendientes.length === 0 && autorizados.length === 1) {
         console.log('🧪 Agregando datos de prueba...');
         window.agregarClientePendiente('María González', '53555123456');
         window.agregarClientePendiente('Juan Pérez', '53555678901');
