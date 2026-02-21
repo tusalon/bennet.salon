@@ -1,13 +1,11 @@
-// components/Header.js - Bennet Salon (con acceso a admin)
+// components/Header.js - Bennet Salon (con info del cliente)
 
-function Header() {
+function Header({ cliente, onLogout }) {
     const goToAdmin = () => {
         const isAuth = localStorage.getItem('adminAuth') === 'true';
         if (isAuth) {
-            // Si ya está autenticado, va directo al panel
             window.location.href = 'admin.html';
         } else {
-            // Si no, va al login
             window.location.href = 'admin-login.html';
         }
     };
@@ -23,11 +21,15 @@ function Header() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                    <div className="text-sm font-medium text-gray-500 hidden sm:block">
-                        “Por una mejor versión de ti”
-                    </div>
+                    {/* Nombre del cliente si está autorizado */}
+                    {cliente && (
+                        <div className="hidden sm:flex items-center gap-1 text-sm text-gray-600">
+                            <div className="icon-user-check text-green-500"></div>
+                            <span className="font-medium">{cliente.nombre}</span>
+                        </div>
+                    )}
                     
-                    {/* 🔥 Botón de acceso al panel de admin */}
+                    {/* Botón de admin */}
                     <button
                         onClick={goToAdmin}
                         className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-pink-100 transition-colors group relative"
@@ -35,11 +37,21 @@ function Header() {
                     >
                         <div className="icon-shield-check text-gray-500 group-hover:text-pink-600"></div>
                         
-                        {/* Indicador de sesión activa (opcional) */}
                         {localStorage.getItem('adminAuth') === 'true' && (
                             <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
                         )}
                     </button>
+
+                    {/* Botón de logout para cliente */}
+                    {cliente && onLogout && (
+                        <button
+                            onClick={onLogout}
+                            className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-red-100 transition-colors group relative"
+                            title="Cerrar sesión"
+                        >
+                            <div className="icon-log-out text-gray-500 group-hover:text-red-600"></div>
+                        </button>
+                    )}
                 </div>
             </div>
         </header>

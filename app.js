@@ -1,7 +1,8 @@
-// app.js - Versión limpia sin código de conexión lenta
+// app.js - Versión con control de acceso de clientes
 
 function App() {
     const [showWelcome, setShowWelcome] = React.useState(true);
+    const [clienteAutorizado, setClienteAutorizado] = React.useState(null); // { nombre, whatsapp }
     const [bookingData, setBookingData] = React.useState({
         service: null,
         date: null,
@@ -10,12 +11,50 @@ function App() {
     });
     const [showForm, setShowForm] = React.useState(false);
 
+    // Verificar si hay un cliente autorizado en localStorage al inicio
+    React.useEffect(() => {
+        const savedCliente = localStorage.getItem('cliente_autorizado');
+        if (savedCliente) {
+            try {
+                const cliente = JSON.parse(savedCliente);
+                // Verificar que el número sigue autorizado
+                if (verificarAccesoCliente(cliente.whatsapp)) {
+                    setClienteAutorizado(cliente);
+                } else {
+                    localStorage.removeItem('cliente_autorizado');
+                }
+            } catch (e) {
+                localStorage.removeItem('cliente_autorizado');
+            }
+        }
+    }, []);
+
+    const scrollToSection = (sectionId) => {
+        setTimeout(() => {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                const yOffset = -80;
+                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+        }, 100);
+    };
+
+    const handleAccessGranted = (nombre, whatsapp) => {
+        const cliente = { nombre, whatsapp };
+        setClienteAutorizado(cliente);
+        localStorage.setItem('cliente_autorizado', JSON.stringify(cliente));
+        setShowWelcome(false);
+    };
+
     const handleServiceSelect = (service) => {
         setBookingData(prev => ({ ...prev, service, time: null }));
+        scrollToSection('calendar-section');
     };
 
     const handleDateSelect = (date) => {
         setBookingData(prev => ({ ...prev, date, time: null }));
+        scrollToSection('timeslots-section');
     };
 
     const handleTimeSelect = (time) => {
@@ -36,12 +75,24 @@ function App() {
             confirmedBooking: null
         });
         setShowForm(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+
+    const handleLogout = () => {
+        localStorage.removeItem('cliente_autorizado');
+        setClienteAutorizado(null);
+        setShowWelcome(true);
+    };
+
+    // Si no hay cliente autorizado, mostrar pantalla de solicitud
+    if (!clienteAutorizado) {
+        return <ClientAuthScreen onAccessGranted={handleAccessGranted} />;
+    }
 
     if (showWelcome) {
         return (
             <div data-name="app-container">
-                <WelcomeScreen onStart={() => setShowWelcome(false)} />
+                <WelcomeScreen onStart={() => setShowWelcome(false)} cliente={clienteAutorizado} />
                 <WhatsAppButton />
             </div>
         );
@@ -50,7 +101,7 @@ function App() {
     if (bookingData.confirmedBooking) {
         return (
             <div className="min-h-screen bg-[#faf8f7] flex flex-col" data-name="app-container">
-                <Header />
+                <Header cliente={clienteAutorizado} onLogout={handleLogout} />
                 <main className="flex-grow p-4">
                     <div className="max-w-xl mx-auto">
                         <Confirmation booking={bookingData.confirmedBooking} onReset={resetBooking} />
@@ -63,35 +114,54 @@ function App() {
 
     return (
         <div className="min-h-screen bg-[#faf8f7] flex flex-col pb-20" data-name="app-container">
-            <Header />
+            <Header cliente={clienteAutorizado} onLogout={handleLogout} />
             
             <main className="flex-grow p-4 space-y-8 max-w-3xl mx-auto w-full">
-                {/* Step 1: Service */}
-                <ServiceSelection 
-                    selectedService={bookingData.service} 
-                    onSelect={handleServiceSelect} 
-                />
+                {/* Banner de bienvenida para cliente autorizado */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <div className="icon-check-circle text-green-600"></div>
+                        <span className="text-sm text-green-700">
+                            Bienvenida, <strong>{clienteAutorizado.nombre}</strong>
+                        </span>
+                    </div>
+                    <button 
+                        onClick={handleLogout}
+                        className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1"
+                        title="Salir"
+                    >
+                        <div className="icon-log-out"></div>
+                    </button>
+                </div>
 
-                {/* Step 2: Calendar - Show only after service is selected */}
-                {bookingData.service && (
-                    <Calendar 
-                        selectedDate={bookingData.date} 
-                        onDateSelect={handleDateSelect} 
+                <div id="service-section">
+                    <ServiceSelection 
+                        selectedService={bookingData.service} 
+                        onSelect={handleServiceSelect} 
                     />
+                </div>
+
+                {bookingData.service && (
+                    <div id="calendar-section">
+                        <Calendar 
+                            selectedDate={bookingData.date} 
+                            onDateSelect={handleDateSelect} 
+                        />
+                    </div>
                 )}
 
-                {/* Step 3: Time Slots - Show only after date is selected */}
                 {bookingData.service && bookingData.date && (
-                    <TimeSlots 
-                        service={bookingData.service} 
-                        date={bookingData.date}
-                        selectedTime={bookingData.time}
-                        onTimeSelect={handleTimeSelect}
-                    />
+                    <div id="timeslots-section">
+                        <TimeSlots 
+                            service={bookingData.service} 
+                            date={bookingData.date}
+                            selectedTime={bookingData.time}
+                            onTimeSelect={handleTimeSelect}
+                        />
+                    </div>
                 )}
             </main>
 
-            {/* Modal Form */}
             {showForm && (
                 <BookingForm 
                     service={bookingData.service}
@@ -99,10 +169,10 @@ function App() {
                     time={bookingData.time}
                     onSubmit={handleFormSubmit}
                     onCancel={() => setShowForm(false)}
+                    cliente={clienteAutorizado}
                 />
             )}
             
-            {/* Reset Button */}
             {(bookingData.service || bookingData.date) && (
                 <div className="fixed bottom-24 right-6 z-40">
                     <button 

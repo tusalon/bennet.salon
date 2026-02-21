@@ -1,4 +1,4 @@
-// utils/timeLogic.js - Versión con formato 12h (AM/PM)
+// utils/timeLogic.js - Versión con solo 2 turnos por día (8:00 AM y 2:00 PM)
 
 // Helper to convert "HH:mm" to minutes since midnight
 function timeToMinutes(timeStr) {
@@ -23,7 +23,7 @@ function formatTo12Hour(timeStr) {
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-// Obtener fecha actual en formato local YYYY-MM-DD (CORREGIDO - sin problemas de zona horaria)
+// Obtener fecha actual en formato local YYYY-MM-DD
 function getCurrentLocalDate() {
     const today = new Date();
     const year = today.getFullYear();
@@ -45,35 +45,17 @@ function isTimePassedToday(timeStr24) {
     return false;
 }
 
-// Generar slots respetando bloques de horario (9-12 y 13-18)
+// 🔥 NUEVO: Generar solo 2 slots por día (8:00 AM y 2:00 PM)
 function generateBaseSlots(durationMinutes) {
-    const slots = [];
-    
-    // Bloque mañana: 9:00 a 12:00
-    const morningStart = timeToMinutes("09:00");
-    const morningEnd = timeToMinutes("12:00");
-    
-    // Bloque tarde: 13:00 a 18:00
-    const afternoonStart = timeToMinutes("13:00");
-    const afternoonEnd = timeToMinutes("18:00");
-    
-    // Generar slots en la mañana
-    for (let current = morningStart; current + durationMinutes <= morningEnd; current += durationMinutes) {
-        slots.push(minutesToTime(current));
-    }
-    
-    // Generar slots en la tarde
-    for (let current = afternoonStart; current + durationMinutes <= afternoonEnd; current += durationMinutes) {
-        slots.push(minutesToTime(current));
-    }
-    
-    return slots;
+    // Solo dos horarios fijos independientemente de la duración
+    return ["08:00", "14:00"];
 }
 
 // Filtrar slots disponibles considerando reservas existentes
 function filterAvailableSlots(baseSlots, durationMinutes, existingBookings) {
     return baseSlots.filter(slotStartStr => {
         const slotStart = timeToMinutes(slotStartStr);
+        // Para slots fijos, la duración se calcula según el servicio
         const slotEnd = slotStart + durationMinutes;
 
         // Verificar contra cada reserva existente

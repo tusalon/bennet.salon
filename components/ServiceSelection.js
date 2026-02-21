@@ -60,8 +60,9 @@ function ServiceSelection({ onSelect, selectedService }) {
                         className={`
                             p-4 rounded-xl border text-left transition-all duration-200 
                             ${selectedService?.id === service.id 
-                                ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500 shadow-md' 
-                                : 'border-gray-200 bg-white hover:border-pink-300 hover:shadow-sm'}
+                                ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500 shadow-md scale-[1.02]' 
+                                : 'border-gray-200 bg-white hover:border-pink-300 hover:shadow-sm hover:scale-[1.01]'}
+                            transform transition-all
                         `}
                     >
                         <div className="flex justify-between items-start">
