@@ -1,4 +1,4 @@
-// components/ClientAuthScreen.js - Pantalla de solicitud de acceso
+// components/ClientAuthScreen.js - Pantalla de solicitud de acceso (CORREGIDO)
 
 function ClientAuthScreen({ onAccessGranted }) {
     const [nombre, setNombre] = React.useState('');
@@ -17,27 +17,33 @@ function ClientAuthScreen({ onAccessGranted }) {
         const numeroLimpio = whatsapp.replace(/\D/g, '');
         const numeroCompleto = `53${numeroLimpio}`;
         
+        // 🔥 CORREGIDO: Usar window. para acceder a las funciones globales
         // Verificar si ya está autorizado
-        if (isClienteAutorizado(numeroCompleto)) {
+        if (window.isClienteAutorizado && window.isClienteAutorizado(numeroCompleto)) {
             // Si ya está autorizado, accede directamente
             onAccessGranted(nombre, numeroCompleto);
             return;
         }
         
         // Verificar si ya tiene solicitud pendiente
-        if (isClientePendiente(numeroCompleto)) {
+        if (window.isClientePendiente && window.isClientePendiente(numeroCompleto)) {
             setError('Ya tenés una solicitud pendiente. El dueño te contactará pronto.');
             return;
         }
         
         // Agregar a pendientes y notificar al admin
-        const agregado = agregarClientePendiente(nombre, numeroCompleto);
-        
-        if (agregado) {
-            setSolicitudEnviada(true);
-            setError('');
+        if (typeof window.agregarClientePendiente === 'function') {
+            const agregado = window.agregarClientePendiente(nombre, numeroCompleto);
+            
+            if (agregado) {
+                setSolicitudEnviada(true);
+                setError('');
+            } else {
+                setError('Error al enviar la solicitud. Intentá de nuevo.');
+            }
         } else {
-            setError('Error al enviar la solicitud. Intentá de nuevo.');
+            setError('Error en el sistema. Intentá más tarde.');
+            console.error('agregarClientePendiente no está definida');
         }
     };
 
