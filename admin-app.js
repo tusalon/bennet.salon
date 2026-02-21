@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (COMPLETO CON CLIENTES AUTORIZADOS)
+// admin-app.js - Bennet Salon (COMPLETO Y CORREGIDO)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -52,14 +52,14 @@ function AdminApp() {
     const [showClientesPendientes, setShowClientesPendientes] = React.useState(false);
     const [clientesPendientes, setClientesPendientes] = React.useState([]);
     
-    // 🔥 NUEVO: Estado para clientes autorizados
+    // Estado para clientes autorizados
     const [showClientesAutorizados, setShowClientesAutorizados] = React.useState(false);
     const [clientesAutorizados, setClientesAutorizados] = React.useState([]);
     
     const [errorClientes, setErrorClientes] = React.useState('');
 
     // ============================================
-    // FUNCIONES DE CLIENTES
+    // FUNCIONES DE CLIENTES (CORREGIDAS)
     // ============================================
     
     // Cargar clientes pendientes
@@ -83,7 +83,7 @@ function AdminApp() {
         }
     };
 
-    // 🔥 NUEVO: Cargar clientes autorizados
+    // 🔥 CORREGIDO: Cargar clientes autorizados (ahora recibe objetos completos)
     const loadClientesAutorizados = () => {
         console.log('🔄 Cargando clientes autorizados...');
         
@@ -93,23 +93,12 @@ function AdminApp() {
                 return;
             }
             
-            // Obtener solo los números
-            const numeros = window.getClientesAutorizados();
-            console.log('📋 Números autorizados:', numeros);
+            // AHORA devuelve objetos completos con nombre y whatsapp
+            const autorizados = window.getClientesAutorizados();
+            console.log('📋 Autorizados obtenidos:', autorizados);
             
-            // Necesitamos obtener los nombres de algún lado
-            // Por ahora, mostraremos solo los números
-            // Idealmente deberíamos guardar también los nombres cuando se aprueban
-            const autorizadosConNombres = numeros.map(num => {
-                // Buscar si estaba en pendientes (pero ya se borró)
-                // Esta es una solución temporal - idealmente guardaríamos nombre+tel cuando se aprueba
-                return {
-                    whatsapp: num,
-                    nombre: num === '5354066204' ? 'Dueño' : `Cliente ${num.slice(-4)}`
-                };
-            });
-            
-            setClientesAutorizados(autorizadosConNombres);
+            // Establecer directamente, ya vienen con nombres
+            setClientesAutorizados(autorizados);
         } catch (error) {
             console.error('Error cargando autorizados:', error);
         }
@@ -128,10 +117,10 @@ function AdminApp() {
             const cliente = window.aprobarCliente(whatsapp);
             if (cliente) {
                 loadClientesPendientes();
-                loadClientesAutorizados(); // 🔥 Recargar autorizados
+                loadClientesAutorizados();
                 alert(`✅ Cliente ${cliente.nombre} aprobado`);
                 
-                // Opcional: Notificar al cliente
+                // Notificar al cliente
                 const mensaje = `✅ ¡Hola ${cliente.nombre}! Tu acceso a Bennet Salon ha sido APROBADO. Ya podés reservar turnos desde la app.`;
                 window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(mensaje)}`, '_blank');
             }
@@ -163,28 +152,28 @@ function AdminApp() {
         }
     };
 
-    // 🔥 NUEVO: Eliminar cliente autorizado (VERSIÓN FUNCIONAL)
-const handleEliminarAutorizado = (whatsapp) => {
-    if (!confirm('¿Seguro que querés eliminar este cliente autorizado? Perderá el acceso a la app.')) return;
-    
-    console.log('🗑️ Eliminando autorizado:', whatsapp);
-    
-    try {
-        if (typeof window.eliminarClienteAutorizado !== 'function') {
-            alert('Error: Función no disponible');
-            return;
-        }
+    // Eliminar cliente autorizado
+    const handleEliminarAutorizado = (whatsapp) => {
+        if (!confirm('¿Seguro que querés eliminar este cliente autorizado? Perderá el acceso a la app.')) return;
         
-        const eliminado = window.eliminarClienteAutorizado(whatsapp);
-        if (eliminado) {
-            loadClientesAutorizados();
-            alert(`✅ Cliente ${eliminado.nombre} eliminado`);
+        console.log('🗑️ Eliminando autorizado:', whatsapp);
+        
+        try {
+            if (typeof window.eliminarClienteAutorizado !== 'function') {
+                alert('Error: Función no disponible');
+                return;
+            }
+            
+            const eliminado = window.eliminarClienteAutorizado(whatsapp);
+            if (eliminado) {
+                loadClientesAutorizados();
+                alert(`✅ Cliente ${eliminado.nombre} eliminado`);
+            }
+        } catch (error) {
+            console.error('Error eliminando autorizado:', error);
+            alert('Error al eliminar cliente');
         }
-    } catch (error) {
-        console.error('Error eliminando autorizado:', error);
-        alert('Error al eliminar cliente');
-    }
-};
+    };
 
     // ============================================
     // FUNCIONES DE TURNOS
@@ -205,14 +194,15 @@ const handleEliminarAutorizado = (whatsapp) => {
 
     React.useEffect(() => {
         fetchBookings();
-        loadClientesAutorizados(); // 🔥 Cargar autorizados al inicio
+        loadClientesAutorizados();
         
         // Verificar funciones de auth
         console.log('🔍 Verificando auth:', {
             getClientesPendientes: typeof window.getClientesPendientes,
             aprobarCliente: typeof window.aprobarCliente,
             rechazarCliente: typeof window.rechazarCliente,
-            getClientesAutorizados: typeof window.getClientesAutorizados
+            getClientesAutorizados: typeof window.getClientesAutorizados,
+            eliminarClienteAutorizado: typeof window.eliminarClienteAutorizado
         });
     }, []);
 
@@ -290,7 +280,7 @@ const handleEliminarAutorizado = (whatsapp) => {
                     </div>
                 </div>
 
-                {/* ===== CLIENTES AUTORIZADOS (NUEVO) ===== */}
+                {/* ===== CLIENTES AUTORIZADOS ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
                     <button
                         onClick={() => {
@@ -330,14 +320,21 @@ const handleEliminarAutorizado = (whatsapp) => {
                                                         +{cliente.whatsapp}
                                                     </p>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleEliminarAutorizado(cliente.whatsapp)}
-                                                    className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
-                                                    title="Eliminar acceso"
-                                                >
-                                                    <div className="icon-trash-2"></div>
-                                                    Quitar
-                                                </button>
+                                                {cliente.whatsapp !== '5354066204' && (
+                                                    <button
+                                                        onClick={() => handleEliminarAutorizado(cliente.whatsapp)}
+                                                        className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
+                                                        title="Eliminar acceso"
+                                                    >
+                                                        <div className="icon-trash-2"></div>
+                                                        Quitar
+                                                    </button>
+                                                )}
+                                                {cliente.whatsapp === '5354066204' && (
+                                                    <span className="px-3 py-1 bg-gray-200 text-gray-600 rounded-lg text-sm">
+                                                        Dueño
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     ))
@@ -494,7 +491,7 @@ const handleEliminarAutorizado = (whatsapp) => {
                     </div>
                 </div>
 
-                {/* ===== LISTADO DE TURNOS (igual que antes) ===== */}
+                {/* ===== LISTADO DE TURNOS ===== */}
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
