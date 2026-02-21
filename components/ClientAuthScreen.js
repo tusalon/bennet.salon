@@ -1,4 +1,4 @@
-// components/ClientAuthScreen.js - VERSIÓN DEBUG COMPLETA
+// components/ClientAuthScreen.js - VERSIÓN COMPLETA CON SUPABASE
 
 function ClientAuthScreen({ onAccessGranted }) {
     const [nombre, setNombre] = React.useState('');
@@ -6,75 +6,80 @@ function ClientAuthScreen({ onAccessGranted }) {
     const [solicitudEnviada, setSolicitudEnviada] = React.useState(false);
     const [error, setError] = React.useState('');
     const [clienteAutorizado, setClienteAutorizado] = React.useState(null);
+    const [verificando, setVerificando] = React.useState(false);
 
-    React.useEffect(() => {
-        console.log('🔄 Estado clienteAutorizado actualizado:', clienteAutorizado);
-    }, [clienteAutorizado]);
-
-    const verificarNumero = (numero) => {
-        console.log('='.repeat(50));
-        console.log('🔍 VERIFICAR NÚMERO:', numero);
-        
-        if (numero.length >= 8) {
-            const numeroLimpio = numero.replace(/\D/g, '');
-            const numeroCompleto = `53${numeroLimpio}`;
-            
-            console.log('📞 Número a verificar:', numeroCompleto);
-            console.log('🧩 window.verificarAccesoCliente:', typeof window.verificarAccesoCliente);
-            
-            if (window.verificarAccesoCliente) {
-                const existe = window.verificarAccesoCliente(numeroCompleto);
-                console.log('🔎 Resultado búsqueda:', existe);
-                
-                if (existe) {
-                    console.log('✅ CLIENTE AUTORIZADO ENCONTRADO:', existe);
-                    setClienteAutorizado(existe);
-                    setError('');
-                } else {
-                    console.log('❌ CLIENTE NO AUTORIZADO');
-                    setClienteAutorizado(null);
-                }
-            } else {
-                console.error('❌ verificarAccesoCliente NO EXISTE');
-            }
-        } else {
-            console.log('⏳ Número corto, limpiando...');
+    const verificarNumero = async (numero) => {
+        if (numero.length < 8) {
             setClienteAutorizado(null);
+            return;
         }
-        console.log('='.repeat(50));
+        
+        setVerificando(true);
+        
+        const numeroLimpio = numero.replace(/\D/g, '');
+        const numeroCompleto = `53${numeroLimpio}`;
+        
+        try {
+            console.log('🔍 Verificando número:', numeroCompleto);
+            const existe = await window.verificarAccesoCliente(numeroCompleto);
+            console.log('📋 Resultado:', existe);
+            
+            if (existe) {
+                setClienteAutorizado(existe);
+                setError('');
+            } else {
+                setClienteAutorizado(null);
+            }
+        } catch (err) {
+            console.error('Error verificando:', err);
+        } finally {
+            setVerificando(false);
+        }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('📝 HANDLE SUBMIT');
         
         if (!nombre.trim() || !whatsapp.trim()) {
             setError('Completá todos los campos');
             return;
         }
         
+        setVerificando(true);
+        
         const numeroLimpio = whatsapp.replace(/\D/g, '');
         const numeroCompleto = `53${numeroLimpio}`;
         
-        if (clienteAutorizado) {
-            console.log('✅ Acceso directo para:', clienteAutorizado);
-            onAccessGranted(clienteAutorizado.nombre, numeroCompleto);
-            return;
-        }
-        
-        if (window.isClientePendiente && window.isClientePendiente(numeroCompleto)) {
-            setError('Ya tenés una solicitud pendiente.');
-            return;
-        }
-        
-        if (window.agregarClientePendiente) {
-            const agregado = window.agregarClientePendiente(nombre, numeroCompleto);
+        try {
+            // Si ya está autorizado
+            const autorizado = await window.verificarAccesoCliente(numeroCompleto);
+            if (autorizado) {
+                console.log('✅ Acceso directo para:', autorizado);
+                onAccessGranted(autorizado.nombre, numeroCompleto);
+                return;
+            }
+            
+            // Verificar si ya tiene solicitud pendiente
+            const pendiente = await window.isClientePendiente(numeroCompleto);
+            if (pendiente) {
+                setError('Ya tenés una solicitud pendiente. El dueño te contactará pronto.');
+                return;
+            }
+            
+            // Agregar solicitud
+            const agregado = await window.agregarClientePendiente(nombre, numeroCompleto);
+            
             if (agregado) {
                 setSolicitudEnviada(true);
                 setError('');
             } else {
-                setError('Error al enviar la solicitud.');
+                setError('Error al enviar la solicitud. Intentá de nuevo.');
             }
+        } catch (err) {
+            console.error('Error en submit:', err);
+            setError('Error en el sistema. Intentá más tarde.');
+        } finally {
+            setVerificando(false);
         }
     };
 
@@ -182,8 +187,16 @@ function ClientAuthScreen({ onAccessGranted }) {
                             <p className="text-xs text-gray-400 mt-1">Ingresá solo los números después del +53</p>
                         </div>
 
+                        {/* Indicador de verificación */}
+                        {verificando && (
+                            <div className="text-blue-600 text-sm bg-blue-50 p-2 rounded-lg flex items-center gap-2">
+                                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                                Verificando...
+                            </div>
+                        )}
+
                         {/* Mensaje si ya está autorizado */}
-                        {clienteAutorizado && (
+                        {clienteAutorizado && !verificando && (
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-fade-in">
                                 <div className="flex items-start gap-3">
                                     <div className="icon-check-circle text-green-600 text-xl"></div>
@@ -207,7 +220,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                         )}
 
                         {/* Botón de acceso directo o solicitud */}
-                        {clienteAutorizado ? (
+                        {clienteAutorizado && !verificando ? (
                             <button
                                 type="button"
                                 onClick={handleAccesoDirecto}
@@ -219,15 +232,16 @@ function ClientAuthScreen({ onAccessGranted }) {
                         ) : (
                             <button
                                 type="submit"
-                                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105"
+                                disabled={verificando}
+                                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Solicitar Acceso
+                                {verificando ? 'Verificando...' : 'Solicitar Acceso'}
                             </button>
                         )}
                     </form>
 
                     {/* Mensaje adicional */}
-                    {!clienteAutorizado && (
+                    {!clienteAutorizado && !verificando && (
                         <div className="mt-6 text-xs text-center text-gray-400">
                             <p>¿Ya tenés acceso?</p>
                             <p className="mt-1">Ingresá tu número y si estás autorizado, aparecerá el botón para entrar.</p>

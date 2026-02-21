@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (COMPLETO CON PESTAÑAS)
+// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON SOPORTE SUPABASE ASYNC)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -22,7 +22,7 @@ async function getAllBookings() {
     return await res.json();
 }
 
-async function updateBookingStatus(id, newStatus) {
+async function cancelBooking(id) {
     const res = await fetch(
         `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`,
         {
@@ -32,7 +32,7 @@ async function updateBookingStatus(id, newStatus) {
                 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ estado: newStatus })
+            body: JSON.stringify({ estado: 'Cancelado' })
         }
     );
     return res.ok;
@@ -46,7 +46,10 @@ function AdminApp() {
     const [bookings, setBookings] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [filterDate, setFilterDate] = React.useState('');
-    const [tabActivo, setTabActivo] = React.useState('reservas'); // 🔥 Cambiado a 'reservas'
+    const [statusFilter, setStatusFilter] = React.useState('activas');
+    
+    // Pestaña activa
+    const [tabActivo, setTabActivo] = React.useState('reservas');
     
     // Estados para clientes pendientes
     const [showClientesPendientes, setShowClientesPendientes] = React.useState(false);
@@ -54,54 +57,62 @@ function AdminApp() {
     const [showClientesAutorizados, setShowClientesAutorizados] = React.useState(false);
     const [clientesAutorizados, setClientesAutorizados] = React.useState([]);
     const [errorClientes, setErrorClientes] = React.useState('');
+    const [cargandoClientes, setCargandoClientes] = React.useState(false);
 
     // ============================================
-    // FUNCIONES DE CLIENTES
+    // FUNCIONES DE CLIENTES (VERSIÓN ASYNC)
     // ============================================
-    const loadClientesPendientes = () => {
+    
+    const loadClientesPendientes = async () => {
         console.log('🔄 Cargando clientes pendientes...');
+        setCargandoClientes(true);
         try {
             if (typeof window.getClientesPendientes !== 'function') {
                 console.error('❌ getClientesPendientes no está definida');
                 setErrorClientes('Error: Sistema de clientes no disponible');
                 return;
             }
-            const pendientes = window.getClientesPendientes();
+            const pendientes = await window.getClientesPendientes();
             console.log('📋 Pendientes obtenidos:', pendientes);
             setClientesPendientes(pendientes);
             setErrorClientes('');
         } catch (error) {
             console.error('Error cargando pendientes:', error);
             setErrorClientes('Error al cargar solicitudes');
+        } finally {
+            setCargandoClientes(false);
         }
     };
 
-    const loadClientesAutorizados = () => {
+    const loadClientesAutorizados = async () => {
         console.log('🔄 Cargando clientes autorizados...');
+        setCargandoClientes(true);
         try {
             if (typeof window.getClientesAutorizados !== 'function') {
                 console.error('❌ getClientesAutorizados no está definida');
                 return;
             }
-            const autorizados = window.getClientesAutorizados();
+            const autorizados = await window.getClientesAutorizados();
             console.log('📋 Autorizados obtenidos:', autorizados);
             setClientesAutorizados(autorizados);
         } catch (error) {
             console.error('Error cargando autorizados:', error);
+        } finally {
+            setCargandoClientes(false);
         }
     };
 
-    const handleAprobarCliente = (whatsapp) => {
+    const handleAprobarCliente = async (whatsapp) => {
         console.log('✅ Aprobando:', whatsapp);
         try {
             if (typeof window.aprobarCliente !== 'function') {
                 alert('Error: Sistema de clientes no disponible');
                 return;
             }
-            const cliente = window.aprobarCliente(whatsapp);
+            const cliente = await window.aprobarCliente(whatsapp);
             if (cliente) {
-                loadClientesPendientes();
-                loadClientesAutorizados();
+                await loadClientesPendientes();
+                await loadClientesAutorizados();
                 alert(`✅ Cliente ${cliente.nombre} aprobado`);
                 const mensaje = `✅ ¡Hola ${cliente.nombre}! Tu acceso a Bennet Salon ha sido APROBADO. Ya podés reservar turnos desde la app.`;
                 window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(mensaje)}`, '_blank');
@@ -112,7 +123,7 @@ function AdminApp() {
         }
     };
 
-    const handleRechazarCliente = (whatsapp) => {
+    const handleRechazarCliente = async (whatsapp) => {
         if (!confirm('¿Rechazar esta solicitud?')) return;
         console.log('❌ Rechazando:', whatsapp);
         try {
@@ -120,9 +131,9 @@ function AdminApp() {
                 alert('Error: Sistema de clientes no disponible');
                 return;
             }
-            const cliente = window.rechazarCliente(whatsapp);
-            if (cliente) {
-                loadClientesPendientes();
+            const resultado = await window.rechazarCliente(whatsapp);
+            if (resultado) {
+                await loadClientesPendientes();
             }
         } catch (error) {
             console.error('Error rechazando:', error);
@@ -130,7 +141,7 @@ function AdminApp() {
         }
     };
 
-    const handleEliminarAutorizado = (whatsapp) => {
+    const handleEliminarAutorizado = async (whatsapp) => {
         if (!confirm('¿Seguro que querés eliminar este cliente autorizado? Perderá el acceso a la app.')) return;
         console.log('🗑️ Eliminando autorizado:', whatsapp);
         try {
@@ -138,10 +149,10 @@ function AdminApp() {
                 alert('Error: Función no disponible');
                 return;
             }
-            const eliminado = window.eliminarClienteAutorizado(whatsapp);
-            if (eliminado) {
-                loadClientesAutorizados();
-                alert(`✅ Cliente ${eliminado.nombre} eliminado`);
+            const resultado = await window.eliminarClienteAutorizado(whatsapp);
+            if (resultado) {
+                await loadClientesAutorizados();
+                alert(`✅ Cliente eliminado`);
             }
         } catch (error) {
             console.error('Error eliminando autorizado:', error);
@@ -150,20 +161,17 @@ function AdminApp() {
     };
 
     // ============================================
-    // FUNCIONES DE TURNOS (RESERVAS)
+    // FUNCIONES DE RESERVAS
     // ============================================
     const fetchBookings = async () => {
         setLoading(true);
         try {
             const data = await getAllBookings();
-            data.sort((a, b) => {
-                if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
-                return a.hora_inicio.localeCompare(b.hora_inicio);
-            });
+            data.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
             setBookings(data);
         } catch (error) {
             console.error('Error fetching bookings:', error);
-            alert('Error al cargar los turnos');
+            alert('Error al cargar las reservas');
         } finally {
             setLoading(false);
         }
@@ -181,36 +189,16 @@ function AdminApp() {
         });
     }, []);
 
-    const handleStatusChange = async (id, newStatus, bookingData) => {
-        if (!confirm(`¿Estás seguro de cambiar el estado a ${newStatus}?`)) return;
-        
-        try {
-            await updateBookingStatus(id, newStatus);
-            
-            const phone = bookingData.cliente_whatsapp;
-            let mensaje = "";
-            
-            if (newStatus === "Confirmado") {
-                mensaje = `✅ *TURNO CONFIRMADO* ✅\n\nHola ${bookingData.cliente_nombre}, te confirmamos tu turno en *Bennet Salon*:\n\n📅 *Fecha:* ${bookingData.fecha}\n⏰ *Hora:* ${bookingData.hora_inicio}\n💅 *Servicio:* ${bookingData.servicio} (${bookingData.duracion} min)\n\n📱 Ante cualquier cambio, contactanos al +53 54066204\n\n¡Te esperamos! ✨`;
-            } else if (newStatus === "Cancelado") {
-                mensaje = `❌ *TURNO CANCELADO* ❌\n\nHola ${bookingData.cliente_nombre}, lamentamos informarte que tu turno del *${bookingData.fecha}* a las *${bookingData.hora_inicio}* ha sido cancelado.\n\nPor favor, contactanos para reagendar:\n📱 +53 54066204\n\nDisculpá las molestias.`;
-            }
-            
-            const encodedMensaje = encodeURIComponent(mensaje);
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            
-            if (isIOS) {
-                window.location.href = `whatsapp://send?phone=${phone}&text=${encodedMensaje}`;
-                setTimeout(() => {
-                    window.location.href = `https://wa.me/${phone}?text=${encodedMensaje}`;
-                }, 500);
-            } else {
-                window.open(`https://wa.me/${phone}?text=${encodedMensaje}`, '_blank');
-            }
-            
+    const handleCancel = async (id, bookingData) => {
+        if (!confirm(`¿Cancelar reserva de ${bookingData.cliente_nombre}?`)) return;
+        const ok = await cancelBooking(id);
+        if (ok) {
+            const msg = `❌ Reserva cancelada\n\n${bookingData.cliente_nombre}, tu reserva del ${bookingData.fecha} a las ${formatTo12Hour(bookingData.hora_inicio)} fue cancelada.`;
+            window.open(`https://wa.me/${bookingData.cliente_whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
+            alert('✅ Reserva cancelada');
             fetchBookings();
-        } catch (error) {
-            alert('Error al actualizar');
+        } else {
+            alert('❌ Error al cancelar');
         }
     };
 
@@ -226,9 +214,21 @@ function AdminApp() {
     // ============================================
     // FILTROS
     // ============================================
-    const filteredBookings = filterDate 
-        ? bookings.filter(b => b.fecha === filterDate)
-        : bookings;
+    const getFilteredBookings = () => {
+        let filtered = filterDate
+            ? bookings.filter(b => b.fecha === filterDate)
+            : [...bookings];
+        if (statusFilter === 'activas') {
+            filtered = filtered.filter(b => b.estado !== 'Cancelado');
+        } else if (statusFilter === 'canceladas') {
+            filtered = filtered.filter(b => b.estado === 'Cancelado');
+        }
+        return filtered;
+    };
+
+    const activasCount = bookings.filter(b => b.estado !== 'Cancelado').length;
+    const canceladasCount = bookings.filter(b => b.estado === 'Cancelado').length;
+    const filteredBookings = getFilteredBookings();
 
     // ============================================
     // RENDER (JSX)
@@ -261,7 +261,7 @@ function AdminApp() {
                 {/* ===== PESTAÑAS DE NAVEGACIÓN ===== */}
                 <div className="bg-white p-2 rounded-xl shadow-sm flex flex-wrap gap-2">
                     {[
-                        { id: 'reservas', icono: '📅', label: 'Reservas' }, // ✅ Cambiado a 'Reservas'
+                        { id: 'reservas', icono: '📅', label: 'Reservas' },
                         { id: 'configuracion', icono: '⚙️', label: 'Configuración' },
                         { id: 'servicios', icono: '💅', label: 'Servicios' },
                         { id: 'trabajadoras', icono: '👥', label: 'Trabajadoras' },
@@ -285,23 +285,25 @@ function AdminApp() {
                 {/* ===== CONTENIDO SEGÚN PESTAÑA ===== */}
                 
                 {/* PESTAÑA: CONFIGURACIÓN */}
-                {tabActivo === 'configuracion' && (
-                    <ConfigPanel />
-                )}
+                {tabActivo === 'configuracion' && <ConfigPanel />}
 
                 {/* PESTAÑA: SERVICIOS */}
-                {tabActivo === 'servicios' && (
-                    <ServiciosPanel />
-                )}
+                {tabActivo === 'servicios' && <ServiciosPanel />}
 
                 {/* PESTAÑA: TRABAJADORAS */}
-                {tabActivo === 'trabajadoras' && (
-                    <TrabajadorasPanel />
-                )}
+                {tabActivo === 'trabajadoras' && <TrabajadorasPanel />}
 
                 {/* PESTAÑA: CLIENTES */}
                 {tabActivo === 'clientes' && (
                     <div className="space-y-4">
+                        {/* Indicador de carga */}
+                        {cargandoClientes && (
+                            <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-2">
+                                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                                <span className="text-blue-600">Cargando datos...</span>
+                            </div>
+                        )}
+
                         {/* CLIENTES AUTORIZADOS */}
                         <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
                             <button
@@ -341,6 +343,11 @@ function AdminApp() {
                                                                 <div className="icon-smartphone text-xs"></div>
                                                                 +{cliente.whatsapp}
                                                             </p>
+                                                            {cliente.fecha_aprobacion && (
+                                                                <p className="text-xs text-gray-400 mt-1">
+                                                                   Aprobado: {new Date(cliente.fecha_aprobacion).toLocaleDateString()}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                         {cliente.whatsapp !== '5354066204' && (
                                                             <button
@@ -415,7 +422,7 @@ function AdminApp() {
                                                             </p>
                                                             <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
                                                                 <div className="icon-calendar text-xs"></div>
-                                                                {new Date(cliente.fechaSolicitud).toLocaleString()}
+                                                                {new Date(cliente.fecha_solicitud).toLocaleString()}
                                                             </p>
                                                         </div>
                                                         <div className="flex gap-2">
@@ -445,116 +452,206 @@ function AdminApp() {
                     </div>
                 )}
 
-                {/* PESTAÑA: RESERVAS (por defecto) */}
+                {/* PESTAÑA: RESERVAS */}
                 {tabActivo === 'reservas' && (
-                    <div className="space-y-4">
-                        {/* FILTROS */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 flex-wrap">
-                            <div className="flex items-center gap-2 text-gray-600">
-                                <div className="icon-list-filter"></div>
-                                Filtrar por fecha:
+                    <>
+                        {/* FILTROS DE RESERVAS */}
+                        <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
+                            <div className="flex flex-wrap gap-3 items-center">
+                                <div className="flex items-center gap-2">
+                                    <div className="icon-calendar text-gray-400"></div>
+                                    <input 
+                                        type="date" 
+                                        value={filterDate} 
+                                        onChange={(e) => setFilterDate(e.target.value)} 
+                                        className="border rounded-lg px-3 py-2 text-sm"
+                                    />
+                                    {filterDate && (
+                                        <button 
+                                            onClick={() => setFilterDate('')} 
+                                            className="text-red-500 text-sm hover:text-red-700"
+                                        >
+                                            Limpiar
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            <input 
-                                type="date" 
-                                value={filterDate}
-                                onChange={(e) => setFilterDate(e.target.value)}
-                                className="border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-pink-500"
-                            />
-                            {filterDate && (
-                                <button onClick={() => setFilterDate('')} className="text-sm text-red-500 hover:underline">
-                                    Limpiar filtro
+
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setStatusFilter('activas')}
+                                    className={`
+                                        px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                                        ${statusFilter === 'activas' 
+                                            ? 'bg-green-500 text-white shadow-md scale-105' 
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                                    `}
+                                >
+                                    <div className="icon-check-circle"></div>
+                                    Activas ({activasCount})
                                 </button>
-                            )}
+                                <button
+                                    onClick={() => setStatusFilter('canceladas')}
+                                    className={`
+                                        px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                                        ${statusFilter === 'canceladas' 
+                                            ? 'bg-red-500 text-white shadow-md scale-105' 
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                                    `}
+                                >
+                                    <div className="icon-x-circle"></div>
+                                    Canceladas ({canceladasCount})
+                                </button>
+                                <button
+                                    onClick={() => setStatusFilter('todas')}
+                                    className={`
+                                        px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                                        ${statusFilter === 'todas' 
+                                            ? 'bg-gray-800 text-white shadow-md scale-105' 
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                                    `}
+                                >
+                                    <div className="icon-layers"></div>
+                                    Todas ({bookings.length})
+                                </button>
+                            </div>
+
+                            <div className="text-sm text-gray-500 border-t pt-2 mt-1">
+                                Mostrando: <span className="font-bold text-pink-600">{filteredBookings.length}</span> reservas
+                                {filterDate && <span> • Fecha: {filterDate}</span>}
+                                {statusFilter !== 'todas' && (
+                                    <span> • {statusFilter === 'activas' ? 'Activas' : 'Canceladas'}</span>
+                                )}
+                            </div>
                         </div>
 
-                        {/* LISTA DE RESERVAS */}
+                        {/* LISTADO DE RESERVAS */}
                         {loading ? (
                             <div className="text-center py-12">
-                                <div className="animate-spin h-8 w-8 border-b-2 border-pink-600 rounded-full mx-auto"></div>
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
                                 <p className="text-gray-500 mt-4">Cargando reservas...</p>
                             </div>
                         ) : (
-                            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-                                                <th className="p-4 font-semibold">Fecha/Hora</th>
-                                                <th className="p-4 font-semibold">Cliente</th>
-                                                <th className="p-4 font-semibold">WhatsApp</th>
-                                                <th className="p-4 font-semibold">Servicio</th>
-                                                <th className="p-4 font-semibold">Estado</th>
-                                                <th className="p-4 font-semibold text-right">Acciones</th>
+                            <>
+                                {/* Vista Móvil - Tarjetas */}
+                                <div className="space-y-3 sm:hidden">
+                                    {filteredBookings.map(b => (
+                                        <div key={b.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition">
+                                            <div className="flex justify-between mb-2">
+                                                <span className="font-semibold">{b.fecha}</span>
+                                                <span className="text-sm bg-pink-100 text-pink-700 px-2 py-1 rounded-full">
+                                                    {formatTo12Hour(b.hora_inicio)}
+                                                </span>
+                                            </div>
+                                            <div className="text-sm space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="icon-user text-gray-400"></div>
+                                                    <span>{b.cliente_nombre}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="icon-message-circle text-gray-400"></div>
+                                                    <span>{b.cliente_whatsapp}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="icon-sparkles text-gray-400"></div>
+                                                    <span>{b.servicio}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center mt-3 pt-2 border-t">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                                                    ${b.estado === 'Confirmado' ? 'bg-green-100 text-green-700' : 
+                                                      b.estado === 'Reservado' ? 'bg-yellow-100 text-yellow-700' : 
+                                                      'bg-red-100 text-red-700'}`}>
+                                                    {b.estado}
+                                                </span>
+                                                {b.estado === 'Reservado' && (
+                                                    <button 
+                                                        onClick={() => handleCancel(b.id, b)} 
+                                                        className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {filteredBookings.length === 0 && (
+                                        <div className="text-center py-12 bg-white rounded-xl">
+                                            <div className="icon-calendar-x text-4xl text-gray-300 mb-2"></div>
+                                            <p className="text-gray-500">No hay reservas para mostrar</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Vista Desktop - Tabla */}
+                                <div className="hidden sm:block bg-white rounded-xl shadow-sm overflow-hidden">
+                                    <table className="w-full">
+                                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                                            <tr>
+                                                <th className="p-4 text-left text-sm font-semibold text-gray-600">Fecha/Hora</th>
+                                                <th className="text-left text-sm font-semibold text-gray-600">Cliente</th>
+                                                <th className="text-left text-sm font-semibold text-gray-600">WhatsApp</th>
+                                                <th className="text-left text-sm font-semibold text-gray-600">Servicio</th>
+                                                <th className="text-left text-sm font-semibold text-gray-600">Estado</th>
+                                                <th className="text-left text-sm font-semibold text-gray-600">Acción</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {filteredBookings.map(booking => (
-                                                <tr key={booking.id} className="hover:bg-gray-50">
+                                        <tbody>
+                                            {filteredBookings.map(b => (
+                                                <tr key={b.id} className="border-t hover:bg-gray-50 transition">
                                                     <td className="p-4">
-                                                        <div className="font-medium text-gray-900">{booking.fecha}</div>
-                                                        <div className="text-sm text-gray-500">{booking.hora_inicio} - {booking.hora_fin}</div>
+                                                        <div className="font-medium">{b.fecha}</div>
+                                                        <div className="text-sm text-gray-500">{formatTo12Hour(b.hora_inicio)}</div>
                                                     </td>
-                                                    <td className="p-4 font-medium text-gray-900">
-                                                        {booking.cliente_nombre}
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <a 
-                                                            href={`https://wa.me/${booking.cliente_whatsapp}`} 
-                                                            target="_blank"
-                                                            className="text-green-600 hover:text-green-700 flex items-center gap-1 text-sm"
-                                                        >
-                                                            <div className="icon-message-circle"></div>
-                                                            {booking.cliente_whatsapp}
+                                                    <td className="font-medium">{b.cliente_nombre}</td>
+                                                    <td>
+                                                        <a href={`https://wa.me/${b.cliente_whatsapp}`} target="_blank" 
+                                                           className="text-green-600 hover:text-green-700 flex items-center gap-1">
+                                                            <div className="icon-message-circle text-sm"></div>
+                                                            {b.cliente_whatsapp}
                                                         </a>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="text-sm text-gray-900">{booking.servicio}</div>
-                                                        <div className="text-xs text-gray-500">{booking.duracion} min</div>
+                                                    <td className="max-w-xs">
+                                                        <div className="truncate" title={b.servicio}>
+                                                            {b.servicio}
+                                                        </div>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                                                            ${booking.estado === 'Confirmado' ? 'bg-green-100 text-green-700' : 
-                                                              booking.estado === 'Cancelado' ? 'bg-red-100 text-red-700' : 
-                                                              'bg-yellow-100 text-yellow-700'}
-                                                        `}>
-                                                            {booking.estado}
+                                                    <td>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold
+                                                            ${b.estado === 'Confirmado' ? 'bg-green-100 text-green-700' : 
+                                                              b.estado === 'Reservado' ? 'bg-yellow-100 text-yellow-700' : 
+                                                              'bg-red-100 text-red-700'}`}>
+                                                            {b.estado}
                                                         </span>
                                                     </td>
-                                                    <td className="p-4 text-right space-x-2">
-                                                        {booking.estado !== 'Confirmado' && booking.estado !== 'Cancelado' && (
+                                                    <td>
+                                                        {b.estado === 'Reservado' && (
                                                             <button 
-                                                                onClick={() => handleStatusChange(booking.id, 'Confirmado', booking)}
-                                                                className="text-green-600 hover:bg-green-50 p-2 rounded-lg transition-colors"
-                                                                title="Confirmar"
+                                                                onClick={() => handleCancel(b.id, b)} 
+                                                                className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105"
                                                             >
-                                                                <div className="icon-check"></div>
-                                                            </button>
-                                                        )}
-                                                        {booking.estado !== 'Cancelado' && (
-                                                            <button 
-                                                                onClick={() => handleStatusChange(booking.id, 'Cancelado', booking)}
-                                                                className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                                                                title="Cancelar"
-                                                            >
-                                                                <div className="icon-x"></div>
+                                                                Cancelar
                                                             </button>
                                                         )}
                                                     </td>
                                                 </tr>
                                             ))}
+                                            
                                             {filteredBookings.length === 0 && (
                                                 <tr>
-                                                    <td colSpan="6" className="p-8 text-center text-gray-500">
-                                                        No se encontraron reservas.
+                                                    <td colSpan="6" className="text-center py-12 text-gray-500">
+                                                        <div className="icon-calendar-x text-3xl text-gray-300 mb-2"></div>
+                                                        No hay reservas para mostrar
                                                     </td>
                                                 </tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                            </>
                         )}
-                    </div>
+                    </>
                 )}
             </div>
         </div>
