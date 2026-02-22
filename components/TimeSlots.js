@@ -1,12 +1,12 @@
-// components/TimeSlots.js - Versión con solo 2 turnos e indicadores
+// components/TimeSlots.js - Versión con trabajador
 
-function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
+function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
     const [slots, setSlots] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState(null);
 
     React.useEffect(() => {
-        if (!service || !date) return;
+        if (!service || !date || !worker) return; // ✅ Requiere worker
 
         const loadSlots = async () => {
             setLoading(true);
@@ -15,7 +15,11 @@ function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
                 const baseSlots = generateBaseSlots(service.duration);
                 const todayStr = getCurrentLocalDate();
                 const isToday = date === todayStr;
-                const bookings = await getBookingsByDate(date);
+                
+                // 🔥 IMPORTANTE: Usar getBookingsByDateAndWorker
+                const bookings = await getBookingsByDateAndWorker(date, worker.id);
+                
+                console.log(`📅 Turnos ocupados de ${worker.nombre} en ${date}:`, bookings);
                 
                 let available24h = filterAvailableSlots(baseSlots, service.duration, bookings);
                 
@@ -34,15 +38,15 @@ function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
         };
 
         loadSlots();
-    }, [service, date]);
+    }, [service, date, worker]); // ✅ Dependencias incluyen worker
 
-    if (!service || !date) return null;
+    if (!service || !date || !worker) return null; // ✅ Validar worker
 
     return (
         <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <div className="icon-clock text-pink-500"></div>
-                3. Elegí un horario
+                3. Elegí un horario con {worker.nombre} {/* ✅ Muestra el nombre */}
                 {selectedTime && (
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full ml-2">
                         ✓ Horario seleccionado
@@ -59,7 +63,9 @@ function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
             ) : slots.length === 0 ? (
                 <div className="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
                     <div className="icon-calendar-x text-4xl text-gray-400 mb-3 mx-auto"></div>
-                    <p className="text-gray-700 font-medium">No hay horarios disponibles</p>
+                    <p className="text-gray-700 font-medium">
+                        {worker.nombre} no tiene horarios disponibles
+                    </p>
                     <p className="text-sm text-gray-500 mt-1">Los turnos son 8:00 AM y 2:00 PM</p>
                     <p className="text-sm text-gray-400 mt-3">Probá con otra fecha</p>
                 </div>
@@ -68,11 +74,9 @@ function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
                     <div className="text-sm bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
                         <div className="flex items-center gap-2 text-blue-700">
                             <div className="icon-clock text-blue-500"></div>
-                            <span className="font-medium">Horarios disponibles para {date}:</span>
-                        </div>
-                        <div className="flex gap-4 mt-2 justify-center">
-                            <span className="text-xs bg-white px-3 py-1 rounded-full shadow-sm">8:00 AM</span>
-                            <span className="text-xs bg-white px-3 py-1 rounded-full shadow-sm">2:00 PM</span>
+                            <span className="font-medium">
+                                Horarios disponibles de {worker.nombre} para {date}:
+                            </span>
                         </div>
                     </div>
                     

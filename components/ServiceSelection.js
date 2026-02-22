@@ -1,4 +1,4 @@
-// components/ServiceSelection.js - Versión dinámica (usa datos de Supabase)
+// components/ServiceSelection.js - Versión dinámica ASYNC
 
 function ServiceSelection({ onSelect, selectedService }) {
     const [services, setServices] = React.useState([]);
@@ -6,25 +6,32 @@ function ServiceSelection({ onSelect, selectedService }) {
 
     React.useEffect(() => {
         cargarServicios();
+        
+        // Escuchar actualizaciones
+        const handleActualizacion = () => cargarServicios();
+        window.addEventListener('serviciosActualizados', handleActualizacion);
+        
+        return () => {
+            window.removeEventListener('serviciosActualizados', handleActualizacion);
+        };
     }, []);
 
-    const cargarServicios = () => {
+    const cargarServicios = async () => {
         setCargando(true);
         try {
-            // Obtener servicios activos desde window.salonServicios
+            console.log('📋 Cargando servicios desde window.salonServicios...');
             if (window.salonServicios) {
-                const serviciosActivos = window.salonServicios.getAll(true);
-                console.log('📋 Servicios cargados:', serviciosActivos);
-                setServices(serviciosActivos);
+                // ✅ IMPORTANTE: AWAIT aquí
+                const serviciosActivos = await window.salonServicios.getAll(true);
+                console.log('✅ Servicios obtenidos:', serviciosActivos);
+                setServices(serviciosActivos || []);
             } else {
-                // Fallback a servicios por defecto
-                setServices([
-                    { id: 1, name: "💅 Esmaltado + Manicura", duration: 75, price: "3.5 - 5" },
-                    { id: 2, name: "✨ Sistema Press On", duration: 120, price: "6 - 7" },
-                ]);
+                console.error('❌ window.salonServicios no está disponible');
+                setServices([]);
             }
         } catch (error) {
             console.error('Error cargando servicios:', error);
+            setServices([]);
         } finally {
             setCargando(false);
         }
@@ -73,7 +80,7 @@ function ServiceSelection({ onSelect, selectedService }) {
                             <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                     <span className="font-medium text-gray-900 text-lg block">
-                                        {service.nombre || service.name}
+                                        {service.nombre}
                                     </span>
                                     {service.descripcion && (
                                         <p className="text-sm text-gray-500 mt-1">{service.descripcion}</p>
@@ -81,7 +88,7 @@ function ServiceSelection({ onSelect, selectedService }) {
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
                                     <span className="text-pink-600 font-bold text-lg">
-                                        ${service.precioMin || service.price} - ${service.precioMax || service.price}
+                                        ${service.precioMin} - ${service.precioMax}
                                     </span>
                                     <span className="flex items-center text-gray-500 text-xs bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
                                         <div className="icon-clock text-xs mr-1"></div>
