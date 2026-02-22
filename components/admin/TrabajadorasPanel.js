@@ -4,34 +4,77 @@ function TrabajadorasPanel() {
     const [trabajadoras, setTrabajadoras] = React.useState([]);
     const [mostrarForm, setMostrarForm] = React.useState(false);
     const [editando, setEditando] = React.useState(null);
+    const [cargando, setCargando] = React.useState(true);
 
     React.useEffect(() => {
-        setTrabajadoras(window.salonTrabajadoras?.getAll(false) || []);
+        cargarTrabajadoras();
     }, []);
 
-    const handleGuardar = (trabajadora) => {
-        if (editando) {
-            window.salonTrabajadoras.actualizar(editando.id, trabajadora);
-        } else {
-            window.salonTrabajadoras.crear(trabajadora);
-        }
-        setTrabajadoras(window.salonTrabajadoras.getAll(false));
-        setMostrarForm(false);
-        setEditando(null);
-    };
-
-    const handleEliminar = (id) => {
-        if (confirm('¿Eliminar esta trabajadora?')) {
-            window.salonTrabajadoras.eliminar(id);
-            setTrabajadoras(window.salonTrabajadoras.getAll(false));
+    const cargarTrabajadoras = async () => {
+        setCargando(true);
+        try {
+            console.log('📋 Cargando trabajadoras...');
+            if (window.salonTrabajadoras) {
+                const lista = await window.salonTrabajadoras.getAll(false);
+                console.log('✅ Trabajadoras obtenidas:', lista);
+                setTrabajadoras(lista || []);
+            }
+        } catch (error) {
+            console.error('Error cargando trabajadoras:', error);
+        } finally {
+            setCargando(false);
         }
     };
 
-    const toggleActivo = (id) => {
+    const handleGuardar = async (trabajadora) => {
+        try {
+            console.log('💾 Guardando trabajadora:', trabajadora);
+            if (editando) {
+                await window.salonTrabajadoras.actualizar(editando.id, trabajadora);
+            } else {
+                await window.salonTrabajadoras.crear(trabajadora);
+            }
+            await cargarTrabajadoras();
+            setMostrarForm(false);
+            setEditando(null);
+        } catch (error) {
+            console.error('Error guardando trabajadora:', error);
+            alert('Error al guardar la trabajadora');
+        }
+    };
+
+    const handleEliminar = async (id) => {
+        if (!confirm('¿Eliminar esta trabajadora?')) return;
+        try {
+            console.log('🗑️ Eliminando trabajadora:', id);
+            await window.salonTrabajadoras.eliminar(id);
+            await cargarTrabajadoras();
+        } catch (error) {
+            console.error('Error eliminando trabajadora:', error);
+            alert('Error al eliminar la trabajadora');
+        }
+    };
+
+    const toggleActivo = async (id) => {
         const trabajadora = trabajadoras.find(t => t.id === id);
-        window.salonTrabajadoras.actualizar(id, { activo: !trabajadora.activo });
-        setTrabajadoras(window.salonTrabajadoras.getAll(false));
+        try {
+            await window.salonTrabajadoras.actualizar(id, { activo: !trabajadora.activo });
+            await cargarTrabajadoras();
+        } catch (error) {
+            console.error('Error cambiando estado:', error);
+        }
     };
+
+    if (cargando) {
+        return (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+                    <p className="text-gray-500 mt-4">Cargando trabajadoras...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl shadow-sm p-6">
@@ -60,50 +103,56 @@ function TrabajadorasPanel() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {trabajadoras.map(t => (
-                    <div key={t.id} className={`border rounded-lg p-4 ${t.activo ? '' : 'opacity-50 bg-gray-50'}`}>
-                        <div className="flex justify-between items-start">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-12 h-12 ${t.color} rounded-full flex items-center justify-center text-2xl`}>
-                                    {t.avatar}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-semibold text-lg">{t.nombre}</h3>
-                                        <button
-                                            onClick={() => toggleActivo(t.id)}
-                                            className={`text-xs px-2 py-1 rounded-full ${
-                                                t.activo 
-                                                    ? 'bg-green-100 text-green-700' 
-                                                    : 'bg-gray-200 text-gray-600'
-                                            }`}
-                                        >
-                                            {t.activo ? 'Activa' : 'Inactiva'}
-                                        </button>
+                {trabajadoras.length === 0 ? (
+                    <div className="col-span-2 text-center py-8 text-gray-500">
+                        No hay trabajadoras cargadas
+                    </div>
+                ) : (
+                    trabajadoras.map(t => (
+                        <div key={t.id} className={`border rounded-lg p-4 ${t.activo ? '' : 'opacity-50 bg-gray-50'}`}>
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-12 h-12 ${t.color} rounded-full flex items-center justify-center text-2xl`}>
+                                        {t.avatar}
                                     </div>
-                                    <p className="text-sm text-gray-600">{t.especialidad}</p>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-semibold text-lg">{t.nombre}</h3>
+                                            <button
+                                                onClick={() => toggleActivo(t.id)}
+                                                className={`text-xs px-2 py-1 rounded-full ${
+                                                    t.activo 
+                                                        ? 'bg-green-100 text-green-700' 
+                                                        : 'bg-gray-200 text-gray-600'
+                                                }`}
+                                            >
+                                                {t.activo ? 'Activa' : 'Inactiva'}
+                                            </button>
+                                        </div>
+                                        <p className="text-sm text-gray-600">{t.especialidad}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        setEditando(t);
-                                        setMostrarForm(true);
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800"
-                                >
-                                    ✏️
-                                </button>
-                                <button
-                                    onClick={() => handleEliminar(t.id)}
-                                    className="text-red-600 hover:text-red-800"
-                                >
-                                    🗑️
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setEditando(t);
+                                            setMostrarForm(true);
+                                        }}
+                                        className="text-blue-600 hover:text-blue-800"
+                                    >
+                                        ✏️
+                                    </button>
+                                    <button
+                                        onClick={() => handleEliminar(t.id)}
+                                        className="text-red-600 hover:text-red-800"
+                                    >
+                                        🗑️
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))
+                )}
             </div>
         </div>
     );

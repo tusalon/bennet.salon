@@ -4,53 +4,77 @@ function ServiciosPanel() {
     const [servicios, setServicios] = React.useState([]);
     const [mostrarForm, setMostrarForm] = React.useState(false);
     const [editando, setEditando] = React.useState(null);
+    const [cargando, setCargando] = React.useState(true);
 
     React.useEffect(() => {
-        console.log('🔄 ServiciosPanel montado');
         cargarServicios();
     }, []);
 
-    const cargarServicios = () => {
-        console.log('📋 Cargando servicios desde window.salonServicios');
-        if (window.salonServicios) {
-            const lista = window.salonServicios.getAll(false);
-            console.log('✅ Servicios obtenidos:', lista);
-            setServicios(lista);
-        } else {
-            console.error('❌ window.salonServicios no está disponible');
+    const cargarServicios = async () => {
+        setCargando(true);
+        try {
+            console.log('📋 Cargando servicios...');
+            if (window.salonServicios) {
+                const lista = await window.salonServicios.getAll(false);
+                console.log('✅ Servicios obtenidos:', lista);
+                setServicios(lista || []);
+            }
+        } catch (error) {
+            console.error('Error cargando servicios:', error);
+        } finally {
+            setCargando(false);
         }
     };
 
-    const handleGuardar = (servicio) => {
-        console.log('💾 Guardando servicio:', servicio);
-        if (editando) {
-            window.salonServicios.actualizar(editando.id, servicio);
-        } else {
-            window.salonServicios.crear(servicio);
-        }
-        cargarServicios();
-        setMostrarForm(false);
-        setEditando(null);
-        
-        if (window.dispatchEvent) {
-            window.dispatchEvent(new Event('serviciosActualizados'));
+    const handleGuardar = async (servicio) => {
+        try {
+            console.log('💾 Guardando servicio:', servicio);
+            if (editando) {
+                await window.salonServicios.actualizar(editando.id, servicio);
+            } else {
+                await window.salonServicios.crear(servicio);
+            }
+            await cargarServicios();
+            setMostrarForm(false);
+            setEditando(null);
+        } catch (error) {
+            console.error('Error guardando servicio:', error);
+            alert('Error al guardar el servicio');
         }
     };
 
-    const handleEliminar = (id) => {
-        if (confirm('¿Eliminar este servicio?')) {
+    const handleEliminar = async (id) => {
+        if (!confirm('¿Eliminar este servicio?')) return;
+        try {
             console.log('🗑️ Eliminando servicio:', id);
-            window.salonServicios.eliminar(id);
-            cargarServicios();
+            await window.salonServicios.eliminar(id);
+            await cargarServicios();
+        } catch (error) {
+            console.error('Error eliminando servicio:', error);
+            alert('Error al eliminar el servicio');
         }
     };
 
-    const toggleActivo = (id) => {
+    const toggleActivo = async (id) => {
         const servicio = servicios.find(s => s.id === id);
-        console.log('🔄 Cambiando estado de:', servicio.nombre);
-        window.salonServicios.actualizar(id, { activo: !servicio.activo });
-        cargarServicios();
+        try {
+            await window.salonServicios.actualizar(id, { activo: !servicio.activo });
+            await cargarServicios();
+        } catch (error) {
+            console.error('Error cambiando estado:', error);
+        }
     };
+
+    if (cargando) {
+        return (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+                    <p className="text-gray-500 mt-4">Cargando servicios...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl shadow-sm p-6">
