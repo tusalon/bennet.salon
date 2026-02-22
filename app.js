@@ -163,8 +163,8 @@ function App() {
 
                 {/* 🔥 PASO 2: Trabajador (solo si hay servicio) */}
                 {bookingData.service && (
-                    <div id="worker-section">
-                        <WorkerSelection 
+                    <div id="worker-selector">
+                        <WorkerSelector 
                             selectedWorker={bookingData.worker} 
                             onSelect={handleWorkerSelect} 
                         />

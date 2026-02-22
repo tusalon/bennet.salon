@@ -1,6 +1,6 @@
-// components/WorkerSelection.js - Selección de trabajador (ARCHIVO NUEVO)
+// components/WorkerSelector.js - Selección de trabajador (ARCHIVO NUEVO)
 
-function WorkerSelection({ onSelect, selectedWorker }) {
+function WorkerSelector({ onSelect, selectedWorker }) {
     const [trabajadoras, setTrabajadoras] = React.useState([]);
     
     React.useEffect(() => {
