@@ -1,149 +1,292 @@
-// components/admin/ConfigPanel.js
+// components/admin/ConfigPanel.js - Versión con horarios por trabajadora
 
 function ConfigPanel() {
-    const [config, setConfig] = React.useState(window.salonConfig?.get() || {});
-    const [dias] = React.useState(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']);
-    const [diasNombres] = React.useState({
+    const [trabajadoras, setTrabajadoras] = React.useState([]);
+    const [trabajadoraSeleccionada, setTrabajadoraSeleccionada] = React.useState(null);
+    const [horarios, setHorarios] = React.useState({});
+    const [configGlobal, setConfigGlobal] = React.useState({});
+    const [cargando, setCargando] = React.useState(true);
+
+    const dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+    const diasNombres = {
         lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles',
         jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
-    });
+    };
 
-    const handleGuardar = () => {
-        window.salonConfig.guardar(config);
-        alert('✅ Configuración guardada');
+    // Generar horas disponibles (0-23)
+    const horas = Array.from({ length: 24 }, (_, i) => ({
+        value: i,
+        label: `${i.toString().padStart(2, '0')}:00`
+    }));
+
+    React.useEffect(() => {
+        cargarDatos();
+    }, []);
+
+    const cargarDatos = async () => {
+        setCargando(true);
+        try {
+            // Cargar trabajadoras
+            if (window.salonTrabajadoras) {
+                const lista = await window.salonTrabajadoras.getAll(true);
+                setTrabajadoras(lista || []);
+                if (lista && lista.length > 0) {
+                    setTrabajadoraSeleccionada(lista[0].id);
+                }
+            }
+            
+            // Cargar configuración global
+            if (window.salonConfig) {
+                const config = await window.salonConfig.get();
+                setConfigGlobal(config || {});
+            }
+        } catch (error) {
+            console.error('Error cargando datos:', error);
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    React.useEffect(() => {
+        if (trabajadoraSeleccionada) {
+            cargarHorariosTrabajadora(trabajadoraSeleccionada);
+        }
+    }, [trabajadoraSeleccionada]);
+
+    const cargarHorariosTrabajadora = async (id) => {
+        try {
+            const horariosTrabajadora = await window.salonConfig.getHorariosTrabajadora(id);
+            setHorarios(prev => ({
+                ...prev,
+                [id]: horariosTrabajadora
+            }));
+        } catch (error) {
+            console.error('Error cargando horarios:', error);
+        }
     };
 
     const toggleDia = (dia) => {
-        setConfig({
-            ...config,
-            horarios: {
-                ...config.horarios,
-                [dia]: {
-                    ...config.horarios[dia],
-                    activo: !config.horarios[dia]?.activo
-                }
+        if (!trabajadoraSeleccionada) return;
+        
+        const horariosActuales = horarios[trabajadoraSeleccionada] || { horas: [], dias: [] };
+        const diasActuales = horariosActuales.dias || [];
+        
+        const nuevosDias = diasActuales.includes(dia)
+            ? diasActuales.filter(d => d !== dia)
+            : [...diasActuales, dia];
+        
+        setHorarios({
+            ...horarios,
+            [trabajadoraSeleccionada]: {
+                ...horariosActuales,
+                dias: nuevosDias
             }
         });
     };
 
-    const actualizarHorario = (dia, bloque, campo, valor) => {
-        setConfig({
-            ...config,
-            horarios: {
-                ...config.horarios,
-                [dia]: {
-                    ...config.horarios[dia],
-                    [bloque]: {
-                        ...config.horarios[dia]?.[bloque],
-                        [campo]: valor
-                    }
-                }
+    const toggleHora = (hora) => {
+        if (!trabajadoraSeleccionada) return;
+        
+        const horariosActuales = horarios[trabajadoraSeleccionada] || { horas: [], dias: [] };
+        const horasActuales = horariosActuales.horas || [];
+        
+        const nuevasHoras = horasActuales.includes(hora)
+            ? horasActuales.filter(h => h !== hora)
+            : [...horasActuales, hora].sort((a, b) => a - b);
+        
+        setHorarios({
+            ...horarios,
+            [trabajadoraSeleccionada]: {
+                ...horariosActuales,
+                horas: nuevasHoras
             }
         });
     };
+
+    const handleGuardarConfigGlobal = async () => {
+        try {
+            await window.salonConfig.guardar(configGlobal);
+            alert('✅ Configuración global guardada');
+        } catch (error) {
+            alert('Error al guardar configuración global');
+        }
+    };
+
+    const handleGuardarHorariosTrabajadora = async () => {
+        if (!trabajadoraSeleccionada) return;
+        
+        try {
+            const horariosAGuardar = horarios[trabajadoraSeleccionada] || { horas: [], dias: [] };
+            await window.salonConfig.guardarHorariosTrabajadora(
+                trabajadoraSeleccionada, 
+                horariosAGuardar
+            );
+            alert('✅ Horarios guardados para la trabajadora');
+        } catch (error) {
+            alert('Error al guardar horarios');
+        }
+    };
+
+    if (cargando) {
+        return (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+                    <p className="text-gray-500 mt-4">Cargando configuración...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold mb-6">⚙️ Configuración del Salón</h2>
             
-            <div className="space-y-4 mb-6">
-                <h3 className="font-semibold text-lg">📅 Horarios de Atención</h3>
+            {/* Configuración Global */}
+            <div className="mb-8 p-4 bg-gray-50 rounded-lg border">
+                <h3 className="font-semibold text-lg mb-4">⚙️ Configuración General</h3>
                 
-                {dias.map(dia => (
-                    <div key={dia} className="border rounded-lg p-3 sm:p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={config.horarios?.[dia]?.activo || false}
-                                    onChange={() => toggleDia(dia)}
-                                    className="w-4 h-4 text-pink-600"
-                                />
-                                <span className="font-medium text-sm sm:text-base">{diasNombres[dia]}</span>
-                            </label>
-                        </div>
-                        
-                        {config.horarios?.[dia]?.activo && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 ml-0 sm:ml-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs sm:text-sm text-gray-600">Mañana</label>
-                                    <div className="flex flex-col sm:flex-row gap-2">
-                                        <input
-                                            type="time"
-                                            value={config.horarios[dia]?.manana?.desde || '09:00'}
-                                            onChange={(e) => actualizarHorario(dia, 'manana', 'desde', e.target.value)}
-                                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto"
-                                        />
-                                        <span className="text-gray-400 hidden sm:inline">a</span>
-                                        <input
-                                            type="time"
-                                            value={config.horarios[dia]?.manana?.hasta || '12:00'}
-                                            onChange={(e) => actualizarHorario(dia, 'manana', 'hasta', e.target.value)}
-                                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto"
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                    <label className="text-xs sm:text-sm text-gray-600">Tarde</label>
-                                    <div className="flex flex-col sm:flex-row gap-2">
-                                        <input
-                                            type="time"
-                                            value={config.horarios[dia]?.tarde?.desde || '13:00'}
-                                            onChange={(e) => actualizarHorario(dia, 'tarde', 'desde', e.target.value)}
-                                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto"
-                                        />
-                                        <span className="text-gray-400 hidden sm:inline">a</span>
-                                        <input
-                                            type="time"
-                                            value={config.horarios[dia]?.tarde?.hasta || '18:00'}
-                                            onChange={(e) => actualizarHorario(dia, 'tarde', 'hasta', e.target.value)}
-                                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Duración por defecto (min)
+                        </label>
+                        <input
+                            type="number"
+                            value={configGlobal.duracionTurnos || 60}
+                            onChange={(e) => setConfigGlobal({
+                                ...configGlobal, 
+                                duracionTurnos: parseInt(e.target.value)
+                            })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm"
+                            min="15"
+                            step="15"
+                        />
                     </div>
-                ))}
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Duración por defecto (min)
-                    </label>
-                    <input
-                        type="number"
-                        value={config.duracionTurnos || 60}
-                        onChange={(e) => setConfig({...config, duracionTurnos: parseInt(e.target.value)})}
-                        className="w-full border rounded-lg px-3 py-2 text-sm"
-                        min="15"
-                        step="15"
-                    />
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Intervalo entre turnos (min)
+                        </label>
+                        <input
+                            type="number"
+                            value={configGlobal.intervaloEntreTurnos || 0}
+                            onChange={(e) => setConfigGlobal({
+                                ...configGlobal, 
+                                intervaloEntreTurnos: parseInt(e.target.value)
+                            })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm"
+                            min="0"
+                            step="5"
+                        />
+                    </div>
                 </div>
                 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Intervalo entre turnos (min)
+                <div className="mb-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={configGlobal.modo24h || false}
+                            onChange={(e) => setConfigGlobal({
+                                ...configGlobal, 
+                                modo24h: e.target.checked
+                            })}
+                            className="w-5 h-5 text-pink-600"
+                        />
+                        <span className="text-sm text-gray-700">Modo 24 horas</span>
                     </label>
-                    <input
-                        type="number"
-                        value={config.intervaloEntreTurnos || 0}
-                        onChange={(e) => setConfig({...config, intervaloEntreTurnos: parseInt(e.target.value)})}
-                        className="w-full border rounded-lg px-3 py-2 text-sm"
-                        min="0"
-                        step="5"
-                    />
                 </div>
+                
+                <button
+                    onClick={handleGuardarConfigGlobal}
+                    className="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition text-sm"
+                >
+                    Guardar Configuración Global
+                </button>
             </div>
             
-            <button
-                onClick={handleGuardar}
-                className="w-full sm:w-auto bg-pink-600 text-white px-6 py-2 rounded-lg hover:bg-pink-700 transition"
-            >
-                Guardar Configuración
-            </button>
+            {/* Selector de trabajadora */}
+            <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seleccionar Trabajadora
+                </label>
+                <select
+                    value={trabajadoraSeleccionada || ''}
+                    onChange={(e) => setTrabajadoraSeleccionada(parseInt(e.target.value))}
+                    className="w-full border rounded-lg px-3 py-2"
+                >
+                    <option value="">Seleccione una trabajadora</option>
+                    {trabajadoras.map(t => (
+                        <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                </select>
+            </div>
+            
+            {/* Horarios por trabajadora */}
+            {trabajadoraSeleccionada && (
+                <div className="space-y-6">
+                    <h3 className="font-semibold text-lg">
+                        📅 Horarios de {
+                            trabajadoras.find(t => t.id === trabajadoraSeleccionada)?.nombre
+                        }
+                    </h3>
+                    
+                    {/* Días de la semana */}
+                    <div className="space-y-4">
+                        <h4 className="font-medium text-gray-700">Días laborales</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {dias.map(dia => {
+                                const activo = horarios[trabajadoraSeleccionada]?.dias?.includes(dia) || false;
+                                return (
+                                    <button
+                                        key={dia}
+                                        onClick={() => toggleDia(dia)}
+                                        className={`
+                                            px-3 py-2 rounded-lg text-sm font-medium transition
+                                            ${activo 
+                                                ? 'bg-pink-600 text-white shadow-md' 
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                                        `}
+                                    >
+                                        {diasNombres[dia]}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    
+                    {/* Horas disponibles */}
+                    <div className="space-y-4">
+                        <h4 className="font-medium text-gray-700">Horas disponibles</h4>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                            {horas.map(hora => {
+                                const activa = horarios[trabajadoraSeleccionada]?.horas?.includes(hora.value) || false;
+                                return (
+                                    <button
+                                        key={hora.value}
+                                        onClick={() => toggleHora(hora.value)}
+                                        className={`
+                                            px-2 py-1 text-xs font-medium rounded transition-all
+                                            ${activa 
+                                                ? 'bg-pink-600 text-white shadow-md hover:bg-pink-700' 
+                                                : 'bg-white border border-gray-300 text-gray-700 hover:border-pink-400 hover:bg-pink-50'}
+                                        `}
+                                    >
+                                        {hora.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    
+                    <button
+                        onClick={handleGuardarHorariosTrabajadora}
+                        className="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition"
+                    >
+                        Guardar Horarios de {trabajadoras.find(t => t.id === trabajadoraSeleccionada)?.nombre}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
