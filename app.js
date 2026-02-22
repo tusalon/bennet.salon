@@ -1,10 +1,11 @@
-// app.js - Versión con control de acceso de clientes
+// app.js - Versión con selección de trabajador primero
 
 function App() {
     const [showWelcome, setShowWelcome] = React.useState(true);
     const [clienteAutorizado, setClienteAutorizado] = React.useState(null);
     const [bookingData, setBookingData] = React.useState({
         service: null,
+        worker: null,
         date: null,
         time: null,
         confirmedBooking: null
@@ -45,13 +46,34 @@ function App() {
         setShowWelcome(false);
     };
 
+    // 🔥 NUEVO ORDEN: Servicio → Trabajador → Fecha → Hora
     const handleServiceSelect = (service) => {
-        setBookingData(prev => ({ ...prev, service, time: null }));
+        setBookingData(prev => ({ 
+            ...prev, 
+            service, 
+            worker: null,
+            date: null,
+            time: null
+        }));
+        scrollToSection('worker-section');
+    };
+
+    const handleWorkerSelect = (worker) => {
+        setBookingData(prev => ({ 
+            ...prev, 
+            worker, 
+            date: null,
+            time: null
+        }));
         scrollToSection('calendar-section');
     };
 
     const handleDateSelect = (date) => {
-        setBookingData(prev => ({ ...prev, date, time: null }));
+        setBookingData(prev => ({ 
+            ...prev, 
+            date, 
+            time: null
+        }));
         scrollToSection('timeslots-section');
     };
 
@@ -68,6 +90,7 @@ function App() {
     const resetBooking = () => {
         setBookingData({
             service: null,
+            worker: null,
             date: null,
             time: null,
             confirmedBooking: null
@@ -113,7 +136,7 @@ function App() {
         <div className="min-h-screen bg-[#faf8f7] flex flex-col pb-20" data-name="app-container">
             <Header cliente={clienteAutorizado} onLogout={handleLogout} />
             
-            <main className="flex-grow p-4 space-y-8 max-w-3xl mx-auto w-full">
+            <main className="flex-grow p-4 space-y-8 max-w-4xl mx-auto w-full">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <div className="icon-check-circle text-green-600"></div>
@@ -130,6 +153,7 @@ function App() {
                     </button>
                 </div>
 
+                {/* 🔥 PASO 1: Servicio */}
                 <div id="service-section">
                     <ServiceSelection 
                         selectedService={bookingData.service} 
@@ -137,20 +161,34 @@ function App() {
                     />
                 </div>
 
+                {/* 🔥 PASO 2: Trabajador (solo si hay servicio) */}
                 {bookingData.service && (
-                    <div id="calendar-section">
-                        <Calendar 
-                            selectedDate={bookingData.date} 
-                            onDateSelect={handleDateSelect} 
+                    <div id="worker-section">
+                        <WorkerSelection 
+                            selectedWorker={bookingData.worker} 
+                            onSelect={handleWorkerSelect} 
                         />
                     </div>
                 )}
 
-                {bookingData.service && bookingData.date && (
+                {/* 🔥 PASO 3: Calendario (solo si hay servicio y trabajador) */}
+                {bookingData.service && bookingData.worker && (
+                    <div id="calendar-section">
+                        <Calendar 
+                            selectedDate={bookingData.date} 
+                            onDateSelect={handleDateSelect}
+                            worker={bookingData.worker}
+                        />
+                    </div>
+                )}
+
+                {/* 🔥 PASO 4: Horarios (solo si hay servicio, trabajador y fecha) */}
+                {bookingData.service && bookingData.worker && bookingData.date && (
                     <div id="timeslots-section">
                         <TimeSlots 
                             service={bookingData.service} 
                             date={bookingData.date}
+                            worker={bookingData.worker}
                             selectedTime={bookingData.time}
                             onTimeSelect={handleTimeSelect}
                         />
@@ -161,6 +199,7 @@ function App() {
             {showForm && (
                 <BookingForm 
                     service={bookingData.service}
+                    worker={bookingData.worker}
                     date={bookingData.date}
                     time={bookingData.time}
                     onSubmit={handleFormSubmit}

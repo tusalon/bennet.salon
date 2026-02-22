@@ -1,27 +1,16 @@
-function BookingForm({ service, date, time, onSubmit, onCancel }) {
-    const [name, setName] = React.useState('');
-    const [whatsapp, setWhatsapp] = React.useState('');
+// components/BookingForm.js - Con trabajador
+
+function BookingForm({ service, worker, date, time, onSubmit, onCancel, cliente }) {
     const [submitting, setSubmitting] = React.useState(false);
     const [error, setError] = React.useState(null);
 
-    // Función para formatear hora a 12h
-    const formatTo12Hour = (timeStr) => {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const period = hours >= 12 ? 'PM' : 'AM';
-        let hour12 = hours % 12;
-        hour12 = hour12 === 0 ? 12 : hour12;
-        return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!name.trim() || !whatsapp.trim()) return;
-
         setSubmitting(true);
         setError(null);
 
         try {
-            const bookings = await getBookingsByDate(date);
+            const bookings = await getBookingsByDateAndWorker(date, worker.id);
             const baseSlots = [time];
             const available = filterAvailableSlots(baseSlots, service.duration, bookings);
 
@@ -33,22 +22,21 @@ function BookingForm({ service, date, time, onSubmit, onCancel }) {
 
             const endTime = calculateEndTime(time, service.duration);
 
-            const numeroLimpio = whatsapp.replace(/\D/g, '');
-            const numeroCompleto = `53${numeroLimpio}`;
-
             const bookingData = {
-                cliente_nombre: name,
-                cliente_whatsapp: numeroCompleto,
+                cliente_nombre: cliente.nombre,
+                cliente_whatsapp: cliente.whatsapp,
                 servicio: service.name,
                 duracion: service.duration,
+                trabajador_id: worker.id,
+                trabajador_nombre: worker.nombre,
                 fecha: date,
                 hora_inicio: time,
                 hora_fin: endTime,
                 estado: "Reservado"
             };
 
-            await createBooking(bookingData);
-            onSubmit(bookingData);
+            const result = await createBooking(bookingData);
+            onSubmit(result.data);
 
         } catch (err) {
             console.error(err);
@@ -69,12 +57,17 @@ function BookingForm({ service, date, time, onSubmit, onCancel }) {
                 </div>
 
                 <div className="space-y-4">
-                    {/* Resumen del turno - AHORA CON HORA EN FORMATO 12H */}
                     <div className="bg-pink-50 p-4 rounded-xl border border-pink-100 space-y-2">
                         <div className="flex items-center gap-3 text-gray-700">
                             <div className="icon-sparkles text-pink-500"></div>
                             <span className="font-medium">{service.name}</span>
                         </div>
+                        
+                        <div className="flex items-center gap-3 text-gray-700">
+                            <div className="icon-users text-pink-500"></div>
+                            <span>Con: <strong>{worker.nombre}</strong></span>
+                        </div>
+                        
                         <div className="flex items-center gap-3 text-gray-700">
                             <div className="icon-calendar text-pink-500"></div>
                             <span>{date}</span>
@@ -86,39 +79,10 @@ function BookingForm({ service, date, time, onSubmit, onCancel }) {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tu Nombre</label>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
-                                placeholder="Ingresá tu nombre completo"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Tu WhatsApp <span className="text-gray-400 text-xs">(para notificaciones)</span>
-                            </label>
-                            <div className="flex">
-                                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                                    +53
-                                </span>
-                                <input
-                                    type="tel"
-                                    value={whatsapp}
-                                    onChange={(e) => {
-                                        const value = e.target.value.replace(/\D/g, '');
-                                        setWhatsapp(value);
-                                    }}
-                                    className="w-full px-4 py-3 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
-                                    placeholder="Ej: 54066204"
-                                    required
-                                />
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">Ingresá solo los números después del +53</p>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-600">
+                                <span className="font-semibold">Tus datos:</span> {cliente.nombre} - +{cliente.whatsapp}
+                            </p>
                         </div>
 
                         {error && (

@@ -1,57 +1,32 @@
-// components/TimeSlots.js - Versión con formato 12h (AM/PM)
+// components/TimeSlots.js - Versión con filtro por trabajador
 
-function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
+function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
     const [slots, setSlots] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState(null);
 
-    // Función para obtener la hora actual en formato 24h para comparar
-    const getCurrentTimeString = () => {
-        const now = new Date();
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
-    };
-
-    // Función para comparar horas (usa formato 24h internamente)
-    const isTimePast = (timeStr24) => {
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        
-        const [slotHour, slotMinute] = timeStr24.split(':').map(Number);
-        
-        if (slotHour < currentHour) return true;
-        if (slotHour === currentHour && slotMinute < currentMinute) return true;
-        return false;
-    };
-
     React.useEffect(() => {
-        if (!service || !date) return;
+        if (!service || !date || !worker) return;
 
         const loadSlots = async () => {
             setLoading(true);
             setError(null);
             try {
-                // 1. Generar todos los horarios posibles (en formato 24h)
                 const baseSlots = generateBaseSlots(service.duration);
-                
-                // 2. Verificar si la fecha seleccionada es HOY
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
+                const todayStr = getCurrentLocalDate();
                 const isToday = date === todayStr;
                 
-                // 3. Obtener turnos ocupados
-                const bookings = await getBookingsByDate(date);
+                const bookings = await getBookingsByDateAndWorker(date, worker.id);
                 
-                // 4. Filtrar horarios ocupados
+                console.log(`📅 Turnos ocupados de ${worker.nombre} en ${date}:`, bookings);
+                
                 let available24h = filterAvailableSlots(baseSlots, service.duration, bookings);
                 
-                // 5. Si es HOY, filtrar también las horas que ya pasaron
                 if (isToday) {
-                    available24h = available24h.filter(time => !isTimePast(time));
+                    available24h = available24h.filter(time => !isTimePassedToday(time));
                 }
                 
+                available24h.sort();
                 setSlots(available24h);
             } catch (err) {
                 console.error(err);
@@ -62,15 +37,20 @@ function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
         };
 
         loadSlots();
-    }, [service, date]);
+    }, [service, date, worker]);
 
-    if (!service || !date) return null;
+    if (!service || !date || !worker) return null;
 
     return (
         <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <div className="icon-clock text-pink-500"></div>
-                3. Elegí un horario
+                4. Elegí un horario con {worker.nombre}
+                {selectedTime && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full ml-2">
+                        ✓ Horario seleccionado
+                    </span>
+                )}
             </h2>
 
             {loading ? (
@@ -80,43 +60,48 @@ function TimeSlots({ service, date, onTimeSelect, selectedTime }) {
             ) : error ? (
                 <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
             ) : slots.length === 0 ? (
-                <div className="text-center p-6 bg-gray-50 rounded-xl border border-gray-100">
-                    <div className="icon-calendar-x text-3xl text-gray-400 mb-2 mx-auto"></div>
-                    <p className="text-gray-600">No hay horarios disponibles para esta fecha.</p>
-                    <p className="text-sm text-gray-400 mt-1">Por favor, seleccioná otro día.</p>
+                <div className="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
+                    <div className="icon-calendar-x text-4xl text-gray-400 mb-3 mx-auto"></div>
+                    <p className="text-gray-700 font-medium">
+                        {worker.nombre} no tiene horarios disponibles para esta fecha
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">Probá con otra fecha</p>
                 </div>
             ) : (
                 <>
-                    {/* Mensaje de horarios */}
-                    <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-lg flex items-center gap-2">
-                        <div className="icon-info"></div>
-                        <span>⏰ Mañana: 9 AM - 12 PM | Tarde: 1 PM - 6 PM</span>
+                    <div className="text-sm bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                        <div className="flex items-center gap-2 text-blue-700">
+                            <div className="icon-clock text-blue-500"></div>
+                            <span className="font-medium">
+                                Horarios disponibles de {worker.nombre} para {date}:
+                            </span>
+                        </div>
                     </div>
                     
-                    {/* Mensaje si es hoy y hay horarios filtrados */}
-                    {date === new Date().toISOString().split('T')[0] && (
-                        <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded-lg flex items-center gap-2">
+                    {date === getCurrentLocalDate() && (
+                        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg flex items-center gap-2 border border-amber-200">
                             <div className="icon-clock text-amber-500"></div>
-                            <span>Solo se muestran horarios a partir de ahora</span>
+                            <span>Solo se muestran horarios que aún no pasaron</span>
                         </div>
                     )}
                     
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
                         {slots.map(time24h => {
-                            // Convertir a formato 12h para mostrar
                             const time12h = formatTo12Hour(time24h);
+                            const isSelected = selectedTime === time24h;
+                            
                             return (
                                 <button
                                     key={time24h}
-                                    onClick={() => onTimeSelect(time24h)} // Guardamos en 24h
+                                    onClick={() => onTimeSelect(time24h)}
                                     className={`
-                                        py-2 px-3 rounded-lg text-sm font-semibold transition-all shadow-sm
-                                        ${selectedTime === time24h
-                                            ? 'bg-green-600 text-white ring-2 ring-green-600 ring-offset-1'
-                                            : 'bg-white text-green-700 border border-green-200 hover:bg-green-50 hover:border-green-300'}
+                                        py-3 px-2 rounded-lg text-base font-semibold transition-all transform
+                                        ${isSelected
+                                            ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg scale-105 ring-2 ring-pink-300'
+                                            : 'bg-white text-gray-700 border-2 border-pink-200 hover:border-pink-400 hover:bg-pink-50 hover:scale-105 hover:shadow-md'}
                                     `}
                                 >
-                                    {time12h} {/* Mostramos 12h */}
+                                    {time12h}
                                 </button>
                             );
                         })}

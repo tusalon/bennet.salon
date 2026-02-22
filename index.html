@@ -90,8 +90,12 @@
     <script type="text/babel" src="utils/api.js"></script>
     <script type="text/babel" src="utils/timeLogic.js"></script>
     <script type="text/babel" src="utils/auth-clients.js"></script>
+    <script type="text/babel" src="utils/config.js"></script>
+    <script type="text/babel" src="utils/servicios.js"></script>
+    <script type="text/babel" src="utils/trabajadoras.js"></script>
     <script type="text/babel" src="components/Header.js"></script>
     <script type="text/babel" src="components/ServiceSelection.js"></script>
+    <script type="text/babel" src="components/WorkerSelection.js"></script>
     <script type="text/babel" src="components/Calendar.js"></script>
     <script type="text/babel" src="components/TimeSlots.js"></script>
     <script type="text/babel" src="components/BookingForm.js"></script>
@@ -131,7 +135,6 @@
                     });
             });
 
-            // Escuchar mensajes del Service Worker
             navigator.serviceWorker.addEventListener('message', event => {
                 if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
                     console.log('📢 Nueva versión detectada');
