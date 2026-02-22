@@ -1,50 +1,94 @@
-// components/TimeSlots.js - Versión con horarios por trabajadora
+// components/TimeSlots.js - Versión corregida (orden de ejecución)
 
 function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
     const [slots, setSlots] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState(null);
     const [horariosTrabajadora, setHorariosTrabajadora] = React.useState(null);
+    const [diaTrabaja, setDiaTrabaja] = React.useState(true);
+    const [verificacionCompleta, setVerificacionCompleta] = React.useState(false);
 
-    // Cargar horarios de la trabajadora
+    // Cargar horarios de la trabajadora (solo cuando cambia worker)
     React.useEffect(() => {
         if (!worker) return;
         
         const cargarHorarios = async () => {
+            setVerificacionCompleta(false);
             try {
+                console.log(`📅 Cargando horarios de ${worker.nombre}...`);
                 const horarios = await window.salonConfig.getHorariosTrabajadora(worker.id);
-                console.log(`📅 Horarios de ${worker.nombre}:`, horarios);
+                console.log(`✅ Horarios de ${worker.nombre}:`, horarios);
                 setHorariosTrabajadora(horarios);
             } catch (error) {
                 console.error('Error cargando horarios:', error);
+                setHorariosTrabajadora({ horas: [], dias: [] });
             }
         };
         
         cargarHorarios();
     }, [worker]);
 
+    // Verificar si trabaja este día (cuando cambian horarios o fecha)
     React.useEffect(() => {
-        if (!service || !date || !worker || !horariosTrabajadora) return;
+        if (!worker || !horariosTrabajadora || !date) {
+            setVerificacionCompleta(false);
+            return;
+        }
+
+        console.log('🔍 Verificando disponibilidad para:', {
+            worker: worker.nombre,
+            fecha: date,
+            horarios: horariosTrabajadora
+        });
+
+        const fecha = new Date(date);
+        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+        const diaSemana = diasSemana[fecha.getDay()];
+        
+        console.log(`📆 Día seleccionado: ${diaSemana} (${fecha.getDay()})`);
+        console.log(`📋 Días laborales de ${worker.nombre}:`, horariosTrabajadora.dias);
+        
+        // Si no hay configuración de días, asumir que todos los días son laborales
+        if (!horariosTrabajadora.dias || horariosTrabajadora.dias.length === 0) {
+            console.log('⚠️ No hay configuración de días, se asumen todos disponibles');
+            setDiaTrabaja(true);
+            setVerificacionCompleta(true);
+            return;
+        }
+        
+        const trabaja = horariosTrabajadora.dias.includes(diaSemana);
+        console.log(`🎯 ¿${worker.nombre} trabaja el ${diaSemana}?`, trabaja);
+        
+        setDiaTrabaja(trabaja);
+        setVerificacionCompleta(true);
+        
+    }, [worker, horariosTrabajadora, date]);
+
+    // Cargar slots disponibles (solo cuando todo está verificado y el día es laboral)
+    React.useEffect(() => {
+        if (!service || !date || !worker || !horariosTrabajadora || !verificacionCompleta) return;
+        
+        if (!diaTrabaja) {
+            setSlots([]);
+            return;
+        }
 
         const loadSlots = async () => {
             setLoading(true);
             setError(null);
             try {
-                // Obtener el día de la semana
-                const fecha = new Date(date);
-                const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-                const diaSemana = diasSemana[fecha.getDay()];
-                
-                // Verificar si la trabajadora trabaja este día
-                if (!horariosTrabajadora.dias?.includes(diaSemana)) {
+                // Verificar si hay horas configuradas
+                if (!horariosTrabajadora.horas || horariosTrabajadora.horas.length === 0) {
+                    console.log('⚠️ No hay horas configuradas para esta trabajadora');
                     setSlots([]);
                     setLoading(false);
                     return;
                 }
                 
                 // Generar slots basados en las horas configuradas
-                const horasActivas = horariosTrabajadora.horas || [];
-                const baseSlots = horasActivas.map(h => `${h.toString().padStart(2, '0')}:00`);
+                const baseSlots = horariosTrabajadora.horas.map(h => 
+                    `${h.toString().padStart(2, '0')}:00`
+                );
                 
                 const todayStr = getCurrentLocalDate();
                 const isToday = date === todayStr;
@@ -55,7 +99,7 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
                 // Filtrar slots disponibles
                 let availableSlots = baseSlots.filter(slotStartStr => {
                     const slotStart = timeToMinutes(slotStartStr);
-                    const slotEnd = slotStart + service.duration;
+                    const slotEnd = slotStart + service.duracion;
 
                     // Verificar conflictos
                     const hasConflict = bookings.some(booking => {
@@ -72,6 +116,7 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
                 }
                 
                 availableSlots.sort();
+                console.log(`✅ Slots disponibles para ${worker.nombre} el ${date}:`, availableSlots);
                 setSlots(availableSlots);
             } catch (err) {
                 console.error(err);
@@ -82,14 +127,27 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
         };
 
         loadSlots();
-    }, [service, date, worker, horariosTrabajadora]);
+    }, [service, date, worker, horariosTrabajadora, diaTrabaja, verificacionCompleta]);
 
     if (!service || !date || !worker) return null;
 
-    // Verificar si la trabajadora trabaja este día
-    if (horariosTrabajadora && !horariosTrabajadora.dias?.includes(
-        ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][new Date(date).getDay()]
-    )) {
+    // Mostrar estado de carga mientras se verifica
+    if (!verificacionCompleta) {
+        return (
+            <div className="space-y-4 animate-fade-in">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <div className="icon-clock text-pink-500"></div>
+                    3. Elegí un horario con {worker.nombre}
+                </h2>
+                <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+                </div>
+            </div>
+        );
+    }
+
+    // Si no trabaja este día
+    if (!diaTrabaja) {
         return (
             <div className="space-y-4 animate-fade-in">
                 <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -129,9 +187,9 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
                 <div className="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
                     <div className="icon-calendar-x text-4xl text-gray-400 mb-3 mx-auto"></div>
                     <p className="text-gray-700 font-medium">
-                        No hay horarios disponibles para {worker.nombre}
+                        No hay horarios disponibles para {worker.nombre} el {new Date(date).toLocaleDateString()}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">Probá con otra fecha</p>
+                    <p className="text-sm text-gray-500 mt-1">Probá con otra fecha o verificá la configuración de horas</p>
                 </div>
             ) : (
                 <>
@@ -139,7 +197,7 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
                         <div className="flex items-center gap-2 text-blue-700">
                             <div className="icon-clock text-blue-500"></div>
                             <span className="font-medium">
-                                Horarios disponibles de {worker.nombre} para {date}:
+                                Horarios disponibles de {worker.nombre} para {new Date(date).toLocaleDateString()}:
                             </span>
                         </div>
                     </div>
