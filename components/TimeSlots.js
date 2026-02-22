@@ -1,4 +1,4 @@
-// components/TimeSlots.js - Versión corregida (orden de ejecución)
+// components/TimeSlots.js - Versión corregida (con manejo correcto de fechas locales)
 
 function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
     const [slots, setSlots] = React.useState([]);
@@ -8,7 +8,7 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
     const [diaTrabaja, setDiaTrabaja] = React.useState(true);
     const [verificacionCompleta, setVerificacionCompleta] = React.useState(false);
 
-    // Cargar horarios de la trabajadora (solo cuando cambia worker)
+    // Cargar horarios de la trabajadora
     React.useEffect(() => {
         if (!worker) return;
         
@@ -28,7 +28,7 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
         cargarHorarios();
     }, [worker]);
 
-    // Verificar si trabaja este día (cuando cambian horarios o fecha)
+    // Verificar si trabaja este día (VERSIÓN CORREGIDA)
     React.useEffect(() => {
         if (!worker || !horariosTrabajadora || !date) {
             setVerificacionCompleta(false);
@@ -41,11 +41,15 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
             horarios: horariosTrabajadora
         });
 
-        const fecha = new Date(date);
-        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-        const diaSemana = diasSemana[fecha.getDay()];
+        // 🔥 CORREGIDO: Crear fecha local correctamente
+        const [año, mes, día] = date.split('-').map(Number);
+        const fechaLocal = new Date(año, mes - 1, día); // mes-1 porque enero es 0
         
-        console.log(`📆 Día seleccionado: ${diaSemana} (${fecha.getDay()})`);
+        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+        const diaSemana = diasSemana[fechaLocal.getDay()];
+        const numeroDia = fechaLocal.getDay();
+        
+        console.log(`📆 Fecha: ${date} → Día local: ${diaSemana} (${numeroDia})`);
         console.log(`📋 Días laborales de ${worker.nombre}:`, horariosTrabajadora.dias);
         
         // Si no hay configuración de días, asumir que todos los días son laborales
@@ -64,7 +68,7 @@ function TimeSlots({ service, date, worker, onTimeSelect, selectedTime }) {
         
     }, [worker, horariosTrabajadora, date]);
 
-    // Cargar slots disponibles (solo cuando todo está verificado y el día es laboral)
+    // Cargar slots disponibles
     React.useEffect(() => {
         if (!service || !date || !worker || !horariosTrabajadora || !verificacionCompleta) return;
         
