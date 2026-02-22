@@ -13,7 +13,7 @@ function BookingForm({ service, worker, date, time, onSubmit, onCancel, cliente 
             // Verificar disponibilidad actualizada
             const bookings = await getBookingsByDateAndWorker(date, worker.id);
             const baseSlots = [time];
-            const available = filterAvailableSlots(baseSlots, service.duration, bookings);
+            const available = filterAvailableSlots(baseSlots, service.duracion, bookings);
 
             if (available.length === 0) {
                 setError("Ese horario ya no está disponible. Por favor elegí otro.");
@@ -21,18 +21,18 @@ function BookingForm({ service, worker, date, time, onSubmit, onCancel, cliente 
                 return;
             }
 
-            const endTime = calculateEndTime(time, service.duration);
+            const endTime = calculateEndTime(time, service.duracion);
 
             const bookingData = {
                 cliente_nombre: cliente.nombre,
                 cliente_whatsapp: cliente.whatsapp,
-                servicio: service.nombre, // ✅ Asegurar que es service.nombre
-                duracion: service.duration,
+                servicio: service.nombre,
+                duracion: service.duracion,        // ✅ CORREGIDO
                 trabajador_id: worker.id,
                 trabajador_nombre: worker.nombre,
                 fecha: date,
                 hora_inicio: time,
-                hora_fin: endTime,
+                hora_fin: endTime,                  // ✅ CORREGIDO
                 estado: "Reservado"
             };
 
@@ -77,7 +77,7 @@ function BookingForm({ service, worker, date, time, onSubmit, onCancel, cliente 
                         </div>
                         <div className="flex items-center gap-3 text-gray-700">
                             <div className="icon-clock text-pink-500"></div>
-                            <span>{formatTo12Hour(time)} ({service.duration} min)</span>
+                            <span>{formatTo12Hour(time)} ({service.duracion} min)</span>
                         </div>
                     </div>
 
