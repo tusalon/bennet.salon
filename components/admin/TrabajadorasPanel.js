@@ -1,4 +1,4 @@
-// components/admin/TrabajadorasPanel.js - CON TELÉFONO Y CONTRASEÑA
+// components/admin/TrabajadorasPanel.js - CON TELÉFONO, CONTRASEÑA Y NIVELES
 
 function TrabajadorasPanel() {
     const [trabajadoras, setTrabajadoras] = React.useState([]);
@@ -62,6 +62,16 @@ function TrabajadorasPanel() {
             await cargarTrabajadoras();
         } catch (error) {
             console.error('Error cambiando estado:', error);
+        }
+    };
+
+    // Función para obtener el nombre del nivel
+    const getNivelNombre = (nivel) => {
+        switch(nivel) {
+            case 1: return '🔰 Básico';
+            case 2: return '⭐ Intermedio';
+            case 3: return '👑 Avanzado';
+            default: return '🔰 Básico';
         }
     };
 
@@ -131,7 +141,18 @@ function TrabajadorasPanel() {
                                         </div>
                                         <p className="text-sm text-gray-600">{t.especialidad}</p>
                                         
-                                        {/* 🔥 NUEVO: Mostrar teléfono si existe */}
+                                        {/* 🔥 NUEVO: Mostrar nivel */}
+                                        <p className="text-xs mt-1">
+                                            <span className={`px-2 py-0.5 rounded-full ${
+                                                t.nivel === 1 ? 'bg-gray-100 text-gray-600' :
+                                                t.nivel === 2 ? 'bg-blue-100 text-blue-600' :
+                                                'bg-purple-100 text-purple-600'
+                                            }`}>
+                                                {getNivelNombre(t.nivel)}
+                                            </span>
+                                        </p>
+                                        
+                                        {/* Mostrar teléfono si existe */}
                                         {t.telefono && (
                                             <p className="text-xs text-gray-500 mt-1">
                                                 📱 {t.telefono}
@@ -169,8 +190,9 @@ function TrabajadoraForm({ trabajadora, onGuardar, onCancelar }) {
     const [form, setForm] = React.useState(trabajadora || {
         nombre: '',
         especialidad: '',
-        telefono: '',        // 🔥 NUEVO
-        password: '',        // 🔥 NUEVO
+        telefono: '',
+        password: '',
+        nivel: 1, // 🔥 NUEVO: nivel por defecto 1
         color: 'bg-pink-500',
         avatar: '👩‍🎨'
     });
@@ -183,6 +205,13 @@ function TrabajadoraForm({ trabajadora, onGuardar, onCancelar }) {
         { value: 'bg-blue-500', label: 'Azul' },
         { value: 'bg-green-500', label: 'Verde' },
         { value: 'bg-orange-500', label: 'Naranja' }
+    ];
+    
+    // 🔥 NUEVO: Opciones de nivel
+    const niveles = [
+        { value: 1, label: '🔰 Básico - Solo ver reservas', desc: 'Acceso limitado a reservas' },
+        { value: 2, label: '⭐ Intermedio - Reservas + Configuración propia + Clientes', desc: 'Puede ver configuración (solo sus horarios) y clientes' },
+        { value: 3, label: '👑 Avanzado - Acceso total', desc: 'Puede gestionar todo como el dueño' }
     ];
 
     const handleSubmit = (e) => {
@@ -215,7 +244,26 @@ function TrabajadoraForm({ trabajadora, onGuardar, onCancelar }) {
                     required
                 />
                 
-                {/* 🔥 NUEVO: Campo teléfono */}
+                {/* 🔥 NUEVO: Selector de nivel */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nivel de Acceso <span className="text-xs text-gray-400">(define permisos)</span>
+                    </label>
+                    <select
+                        value={form.nivel}
+                        onChange={(e) => setForm({...form, nivel: parseInt(e.target.value)})}
+                        className="w-full border rounded-lg px-3 py-2"
+                    >
+                        {niveles.map(n => (
+                            <option key={n.value} value={n.value}>{n.label}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                        {niveles.find(n => n.value === form.nivel)?.desc}
+                    </p>
+                </div>
+                
+                {/* Campo teléfono */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                         Teléfono <span className="text-xs text-gray-400">(para acceder al panel)</span>
@@ -238,7 +286,7 @@ function TrabajadoraForm({ trabajadora, onGuardar, onCancelar }) {
                     <p className="text-xs text-gray-400 mt-1">8 dígitos después del +53</p>
                 </div>
                 
-                {/* 🔥 NUEVO: Campo contraseña */}
+                {/* Campo contraseña */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                         Contraseña <span className="text-xs text-gray-400">(para acceder al panel)</span>

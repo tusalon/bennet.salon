@@ -1,8 +1,4 @@
-// admin-app.js - Bennet Salon (VERSIÓN CON SOPORTE PARA TRABAJADORAS)
-
-// 🔥 CONFIGURACIÓN SUPABASE
-const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
+// admin-app.js - Bennet Salon (VERSIÓN CON NIVELES DE PERMISO)
 
 const TABLE_NAME = 'benettsalon';
 
@@ -11,11 +7,11 @@ const TABLE_NAME = 'benettsalon';
 // ============================================
 async function getAllBookings() {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=fecha.desc,hora_inicio.asc`,
+        `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=fecha.desc,hora_inicio.asc`,
         {
             headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                'apikey': window.SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
             }
         }
     );
@@ -24,12 +20,12 @@ async function getAllBookings() {
 
 async function cancelBooking(id) {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`,
+        `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`,
         {
             method: 'PATCH',
             headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'apikey': window.SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ estado: 'Cancelado' })
@@ -48,8 +44,9 @@ function AdminApp() {
     const [filterDate, setFilterDate] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState('activas');
     
-    // 🔥 NUEVO: Detectar rol del usuario
-    const [userRole, setUserRole] = React.useState('admin'); // 'admin' o 'trabajadora'
+    // Detectar rol del usuario y nivel
+    const [userRole, setUserRole] = React.useState('admin');
+    const [userNivel, setUserNivel] = React.useState(3); // 3 = acceso total por defecto para admin
     const [trabajadora, setTrabajadora] = React.useState(null);
     
     // Pestaña activa
@@ -64,7 +61,7 @@ function AdminApp() {
     const [cargandoClientes, setCargandoClientes] = React.useState(false);
 
     // ============================================
-    // DETECTAR ROL DEL USUARIO AL INICIAR
+    // DETECTAR ROL Y NIVEL DEL USUARIO AL INICIAR
     // ============================================
     React.useEffect(() => {
         // Verificar si hay una trabajadora autenticada
@@ -73,9 +70,11 @@ function AdminApp() {
             console.log('👤 Usuario detectado como trabajadora:', trabajadoraAuth);
             setUserRole('trabajadora');
             setTrabajadora(trabajadoraAuth);
+            setUserNivel(trabajadoraAuth.nivel || 1); // 🔥 NUEVO: nivel de permiso
         } else {
             console.log('👑 Usuario detectado como admin');
             setUserRole('admin');
+            setUserNivel(3); // Admin siempre tiene nivel 3
         }
     }, []);
 
@@ -228,16 +227,17 @@ function AdminApp() {
     React.useEffect(() => {
         fetchBookings();
         
-        // Solo cargar clientes si es admin
-        if (userRole === 'admin') {
+        // Solo cargar clientes si es admin o trabajadora nivel 2 o 3
+        if (userRole === 'admin' || (userRole === 'trabajadora' && userNivel >= 2)) {
             loadClientesAutorizados();
         }
         
         console.log('🔍 Verificando auth:', {
             userRole,
+            userNivel,
             trabajadora
         });
-    }, [userRole, trabajadora]);
+    }, [userRole, userNivel, trabajadora]);
 
     const handleCancel = async (id, bookingData) => {
         if (!confirm(`¿Cancelar reserva de ${bookingData.cliente_nombre}?`)) return;
@@ -287,21 +287,63 @@ function AdminApp() {
     const canceladasCount = bookings.filter(b => b.estado === 'Cancelado').length;
     const filteredBookings = getFilteredBookings();
 
+    // 🔥 NUEVO: Función para determinar qué pestañas mostrar según nivel
+    const getTabsDisponibles = () => {
+        const tabs = [];
+        
+        // Reservas: visible para todos (nivel 1, 2, 3)
+        tabs.push({ id: 'reservas', icono: '📅', label: userRole === 'trabajadora' ? 'Mis Reservas' : 'Reservas' });
+        
+        // Si es admin o trabajadora nivel 2 o 3
+        if (userRole === 'admin' || (userRole === 'trabajadora' && userNivel >= 2)) {
+            // Configuración: solo para nivel 2 y 3 (pero con restricciones)
+            tabs.push({ id: 'configuracion', icono: '⚙️', label: 'Configuración' });
+            
+            // Clientes: para nivel 2 y 3
+            tabs.push({ id: 'clientes', icono: '👤', label: 'Clientes' });
+        }
+        
+        // Si es admin o trabajadora nivel 3 (acceso total)
+        if (userRole === 'admin' || (userRole === 'trabajadora' && userNivel >= 3)) {
+            tabs.push({ id: 'servicios', icono: '💅', label: 'Servicios' });
+            tabs.push({ id: 'trabajadoras', icono: '👥', label: 'Trabajadoras' });
+        }
+        
+        return tabs;
+    };
+
     // ============================================
     // RENDER (JSX)
     // ============================================
+    const tabsDisponibles = getTabsDisponibles();
+
     return (
         <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
             <div className="max-w-6xl mx-auto space-y-4">
                 
                 {/* ===== HEADER ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
-                    <h1 className="text-xl font-bold">
-                        {userRole === 'trabajadora' 
-                            ? `Panel de ${trabajadora?.nombre}`
-                            : 'Panel Admin - Bennet Salon'
-                        }
-                    </h1>
+                    <div>
+                        <h1 className="text-xl font-bold">
+                            {userRole === 'trabajadora' 
+                                ? `Panel de ${trabajadora?.nombre}`
+                                : 'Panel Admin - Bennet Salon'
+                            }
+                        </h1>
+                        {userRole === 'trabajadora' && (
+                            <p className="text-xs mt-1">
+                                <span className={`px-2 py-0.5 rounded-full ${
+                                    userNivel === 1 ? 'bg-gray-100 text-gray-600' :
+                                    userNivel === 2 ? 'bg-blue-100 text-blue-600' :
+                                    'bg-purple-100 text-purple-600'
+                                }`}>
+                                    {userNivel === 1 && '🔰 Nivel Básico'}
+                                    {userNivel === 2 && '⭐ Nivel Intermedio'}
+                                    {userNivel === 3 && '👑 Nivel Avanzado'}
+                                </span>
+                            </p>
+                        )}
+                    </div>
                     <div className="flex gap-2">
                         <button 
                             onClick={fetchBookings} 
@@ -322,16 +364,7 @@ function AdminApp() {
 
                 {/* ===== PESTAÑAS DE NAVEGACIÓN ===== */}
                 <div className="bg-white p-2 rounded-xl shadow-sm flex flex-wrap gap-2">
-                    {[
-                        { id: 'reservas', icono: '📅', label: userRole === 'trabajadora' ? 'Mis Reservas' : 'Reservas' },
-                        // Solo mostrar estas pestañas si es ADMIN
-                        ...(userRole === 'admin' ? [
-                            { id: 'configuracion', icono: '⚙️', label: 'Configuración' },
-                            { id: 'servicios', icono: '💅', label: 'Servicios' },
-                            { id: 'trabajadoras', icono: '👥', label: 'Trabajadoras' },
-                            { id: 'clientes', icono: '👤', label: 'Clientes' }
-                        ] : [])
-                    ].map(tab => (
+                    {tabsDisponibles.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setTabActivo(tab.id)}
@@ -349,17 +382,26 @@ function AdminApp() {
 
                 {/* ===== CONTENIDO SEGÚN PESTAÑA ===== */}
                 
-                {/* PESTAÑA: CONFIGURACIÓN (solo admin) */}
-                {userRole === 'admin' && tabActivo === 'configuracion' && <ConfigPanel />}
+                {/* PESTAÑA: CONFIGURACIÓN - Mostrar ConfigPanel pero con restricciones */}
+                {tabActivo === 'configuracion' && (
+                    <ConfigPanel 
+                        trabajadoraId={userRole === 'trabajadora' ? trabajadora?.id : null}
+                        modoRestringido={userRole === 'trabajadora' && userNivel === 2}
+                    />
+                )}
 
-                {/* PESTAÑA: SERVICIOS (solo admin) */}
-                {userRole === 'admin' && tabActivo === 'servicios' && <ServiciosPanel />}
+                {/* PESTAÑA: SERVICIOS (solo admin o nivel 3) */}
+                {tabActivo === 'servicios' && (userRole === 'admin' || userNivel >= 3) && (
+                    <ServiciosPanel />
+                )}
 
-                {/* PESTAÑA: TRABAJADORAS (solo admin) */}
-                {userRole === 'admin' && tabActivo === 'trabajadoras' && <TrabajadorasPanel />}
+                {/* PESTAÑA: TRABAJADORAS (solo admin o nivel 3) */}
+                {tabActivo === 'trabajadoras' && (userRole === 'admin' || userNivel >= 3) && (
+                    <TrabajadorasPanel />
+                )}
 
-                {/* PESTAÑA: CLIENTES (solo admin) */}
-                {userRole === 'admin' && tabActivo === 'clientes' && (
+                {/* PESTAÑA: CLIENTES (admin o nivel 2 o 3) */}
+                {tabActivo === 'clientes' && (userRole === 'admin' || userNivel >= 2) && (
                     <div className="space-y-4">
                         {/* Indicador de carga */}
                         {cargandoClientes && (
@@ -414,7 +456,7 @@ function AdminApp() {
                                                                 </p>
                                                             )}
                                                         </div>
-                                                        {cliente.whatsapp !== '5354066204' && (
+                                                        {(userRole === 'admin' || userNivel >= 3) && cliente.whatsapp !== '5354066204' && (
                                                             <button
                                                                 onClick={() => handleEliminarAutorizado(cliente.whatsapp)}
                                                                 className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
@@ -438,82 +480,84 @@ function AdminApp() {
                             )}
                         </div>
 
-                        {/* CLIENTES PENDIENTES */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
-                            <button
-                                onClick={() => {
-                                    setShowClientesPendientes(!showClientesPendientes);
-                                    if (!showClientesPendientes) loadClientesPendientes();
-                                }}
-                                className="flex items-center justify-between w-full"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <div className="icon-users text-yellow-500"></div>
-                                    <span className="font-medium">Solicitudes Pendientes</span>
-                                    {clientesPendientes.length > 0 && (
-                                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                                            {clientesPendientes.length}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className={`transform transition-transform ${showClientesPendientes ? 'rotate-180' : ''}`}>
-                                    <div className="icon-chevron-down"></div>
-                                </div>
-                            </button>
-                            
-                            {showClientesPendientes && (
-                                <div className="mt-4">
-                                    {errorClientes && (
-                                        <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">
-                                            {errorClientes}
-                                        </div>
-                                    )}
-                                    
-                                    <div className="space-y-3 max-h-80 overflow-y-auto">
-                                        {clientesPendientes.length === 0 ? (
-                                            <div className="text-center py-6 text-gray-500">
-                                                <div className="icon-check-circle text-3xl text-green-300 mb-2"></div>
-                                                <p>No hay solicitudes pendientes</p>
-                                            </div>
-                                        ) : (
-                                            clientesPendientes.map((cliente, index) => (
-                                                <div key={index} className="bg-gradient-to-r from-yellow-50 to-white p-4 rounded-lg border border-yellow-200 shadow-sm">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <p className="font-bold text-gray-800 text-lg">{cliente.nombre}</p>
-                                                            <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                                                                <div className="icon-smartphone text-xs"></div>
-                                                                +{cliente.whatsapp}
-                                                            </p>
-                                                            <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                                                                <div className="icon-calendar text-xs"></div>
-                                                                {new Date(cliente.fecha_solicitud).toLocaleString()}
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => handleAprobarCliente(cliente.whatsapp)}
-                                                                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
-                                                            >
-                                                                <div className="icon-check"></div>
-                                                                Aprobar
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleRechazarCliente(cliente.whatsapp)}
-                                                                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
-                                                            >
-                                                                <div className="icon-x"></div>
-                                                                Rechazar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
+                        {/* CLIENTES PENDIENTES - Solo admin o nivel 3 pueden gestionar */}
+                        {(userRole === 'admin' || userNivel >= 3) && (
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
+                                <button
+                                    onClick={() => {
+                                        setShowClientesPendientes(!showClientesPendientes);
+                                        if (!showClientesPendientes) loadClientesPendientes();
+                                    }}
+                                    className="flex items-center justify-between w-full"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div className="icon-users text-yellow-500"></div>
+                                        <span className="font-medium">Solicitudes Pendientes</span>
+                                        {clientesPendientes.length > 0 && (
+                                            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                                                {clientesPendientes.length}
+                                            </span>
                                         )}
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                    <div className={`transform transition-transform ${showClientesPendientes ? 'rotate-180' : ''}`}>
+                                        <div className="icon-chevron-down"></div>
+                                    </div>
+                                </button>
+                                
+                                {showClientesPendientes && (
+                                    <div className="mt-4">
+                                        {errorClientes && (
+                                            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">
+                                                {errorClientes}
+                                            </div>
+                                        )}
+                                        
+                                        <div className="space-y-3 max-h-80 overflow-y-auto">
+                                            {clientesPendientes.length === 0 ? (
+                                                <div className="text-center py-6 text-gray-500">
+                                                    <div className="icon-check-circle text-3xl text-green-300 mb-2"></div>
+                                                    <p>No hay solicitudes pendientes</p>
+                                                </div>
+                                            ) : (
+                                                clientesPendientes.map((cliente, index) => (
+                                                    <div key={index} className="bg-gradient-to-r from-yellow-50 to-white p-4 rounded-lg border border-yellow-200 shadow-sm">
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <p className="font-bold text-gray-800 text-lg">{cliente.nombre}</p>
+                                                                <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                                                    <div className="icon-smartphone text-xs"></div>
+                                                                    +{cliente.whatsapp}
+                                                                </p>
+                                                                <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                                                    <div className="icon-calendar text-xs"></div>
+                                                                    {new Date(cliente.fecha_solicitud).toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleAprobarCliente(cliente.whatsapp)}
+                                                                    className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
+                                                                >
+                                                                    <div className="icon-check"></div>
+                                                                    Aprobar
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRechazarCliente(cliente.whatsapp)}
+                                                                    className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition transform hover:scale-105 shadow-sm flex items-center gap-1"
+                                                                >
+                                                                    <div className="icon-x"></div>
+                                                                    Rechazar
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 

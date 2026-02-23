@@ -1,12 +1,9 @@
-// utils/trabajadoras.js - Gestión de trabajadoras CON SUPABASE
-
-const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
+// utils/trabajadoras.js - Gestión de trabajadoras CON SUPABASE (con niveles)
 
 console.log('👥 trabajadoras.js cargado (modo Supabase)');
 
 let trabajadorasCache = [];
-let ultimaActualizacion = 0;
+let ultimaActualizacionTrabajadoras = 0;
 const CACHE_DURATION = 5 * 60 * 1000;
 
 // Cargar trabajadoras desde Supabase
@@ -14,11 +11,11 @@ async function cargarTrabajadorasDesdeDB() {
     try {
         console.log('🌐 Cargando trabajadoras desde Supabase...');
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/trabajadoras?select=*&order=id.asc`,
+            `${window.SUPABASE_URL}/rest/v1/trabajadoras?select=*&order=id.asc`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
@@ -32,7 +29,7 @@ async function cargarTrabajadorasDesdeDB() {
         const data = await response.json();
         console.log('✅ Trabajadoras cargadas desde Supabase:', data);
         trabajadorasCache = data;
-        ultimaActualizacion = Date.now();
+        ultimaActualizacionTrabajadoras = Date.now();
         return data;
     } catch (error) {
         console.error('Error cargando trabajadoras:', error);
@@ -42,7 +39,7 @@ async function cargarTrabajadorasDesdeDB() {
 
 window.salonTrabajadoras = {
     getAll: async function(activas = true) {
-        if (Date.now() - ultimaActualizacion < CACHE_DURATION && trabajadorasCache.length > 0) {
+        if (Date.now() - ultimaActualizacionTrabajadoras < CACHE_DURATION && trabajadorasCache.length > 0) {
             if (activas) {
                 return trabajadorasCache.filter(t => t.activo === true);
             }
@@ -57,24 +54,25 @@ window.salonTrabajadoras = {
             return datos;
         }
         
-        // Fallback
+        // Fallback con nivel incluido
         const defaultData = [
-            { id: 1, nombre: "Ana", especialidad: "Manicura y Pedicura", color: "bg-pink-500", avatar: "👩‍🎨", activo: true },
-            { id: 2, nombre: "Laura", especialidad: "Uñas de Gel y Press On", color: "bg-purple-500", avatar: "💅", activo: true },
-            { id: 3, nombre: "Carla", especialidad: "Diseños y Decoración", color: "bg-indigo-500", avatar: "✨", activo: true }
+            { id: 1, nombre: "Ana", especialidad: "Manicura y Pedicura", color: "bg-pink-500", avatar: "👩‍🎨", activo: true, nivel: 1 },
+            { id: 2, nombre: "Laura", especialidad: "Uñas de Gel y Press On", color: "bg-purple-500", avatar: "💅", activo: true, nivel: 2 },
+            { id: 3, nombre: "Carla", especialidad: "Diseños y Decoración", color: "bg-indigo-500", avatar: "✨", activo: true, nivel: 3 }
         ];
         trabajadorasCache = defaultData;
+        ultimaActualizacionTrabajadoras = Date.now();
         return activas ? defaultData : defaultData;
     },
     
     getById: async function(id) {
         try {
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/trabajadoras?id=eq.${id}&select=*`,
+                `${window.SUPABASE_URL}/rest/v1/trabajadoras?id=eq.${id}&select=*`,
                 {
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -91,12 +89,12 @@ window.salonTrabajadoras = {
     crear: async function(trabajadora) {
         try {
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/trabajadoras`,
+                `${window.SUPABASE_URL}/rest/v1/trabajadoras`,
                 {
                     method: 'POST',
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json',
                         'Prefer': 'return=representation'
                     },
@@ -105,7 +103,10 @@ window.salonTrabajadoras = {
                         especialidad: trabajadora.especialidad,
                         color: trabajadora.color || 'bg-pink-500',
                         avatar: trabajadora.avatar || '👩‍🎨',
-                        activo: true
+                        activo: true,
+                        telefono: trabajadora.telefono || null,
+                        password: trabajadora.password || null,
+                        nivel: trabajadora.nivel || 1 // 🔥 NUEVO: nivel por defecto 1
                     })
                 }
             );
@@ -135,12 +136,12 @@ window.salonTrabajadoras = {
     actualizar: async function(id, cambios) {
         try {
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/trabajadoras?id=eq.${id}`,
+                `${window.SUPABASE_URL}/rest/v1/trabajadoras?id=eq.${id}`,
                 {
                     method: 'PATCH',
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json',
                         'Prefer': 'return=representation'
                     },
@@ -173,12 +174,12 @@ window.salonTrabajadoras = {
     eliminar: async function(id) {
         try {
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/trabajadoras?id=eq.${id}`,
+                `${window.SUPABASE_URL}/rest/v1/trabajadoras?id=eq.${id}`,
                 {
                     method: 'DELETE',
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }

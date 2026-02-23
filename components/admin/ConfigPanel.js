@@ -1,6 +1,6 @@
-// components/admin/ConfigPanel.js - Versión con horarios por trabajadora
+// components/admin/ConfigPanel.js - Versión con horarios por trabajadora (con modo restringido)
 
-function ConfigPanel() {
+function ConfigPanel({ trabajadoraId, modoRestringido }) {
     const [trabajadoras, setTrabajadoras] = React.useState([]);
     const [trabajadoraSeleccionada, setTrabajadoraSeleccionada] = React.useState(null);
     const [horarios, setHorarios] = React.useState({});
@@ -23,6 +23,13 @@ function ConfigPanel() {
         cargarDatos();
     }, []);
 
+    React.useEffect(() => {
+        // Si está en modo restringido, forzar selección de la trabajadora actual
+        if (modoRestringido && trabajadoraId) {
+            setTrabajadoraSeleccionada(trabajadoraId);
+        }
+    }, [modoRestringido, trabajadoraId]);
+
     const cargarDatos = async () => {
         setCargando(true);
         try {
@@ -30,13 +37,15 @@ function ConfigPanel() {
             if (window.salonTrabajadoras) {
                 const lista = await window.salonTrabajadoras.getAll(true);
                 setTrabajadoras(lista || []);
-                if (lista && lista.length > 0) {
+                
+                // Si no está en modo restringido, seleccionar primera por defecto
+                if (!modoRestringido && lista && lista.length > 0) {
                     setTrabajadoraSeleccionada(lista[0].id);
                 }
             }
             
-            // Cargar configuración global
-            if (window.salonConfig) {
+            // Cargar configuración global (solo si no está en modo restringido)
+            if (!modoRestringido && window.salonConfig) {
                 const config = await window.salonConfig.get();
                 setConfigGlobal(config || {});
             }
@@ -104,6 +113,8 @@ function ConfigPanel() {
     };
 
     const handleGuardarConfigGlobal = async () => {
+        if (modoRestringido) return; // No permitir en modo restringido
+        
         try {
             await window.salonConfig.guardar(configGlobal);
             alert('✅ Configuración global guardada');
@@ -140,94 +151,112 @@ function ConfigPanel() {
 
     return (
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
-            <h2 className="text-xl font-bold mb-6">⚙️ Configuración del Salón</h2>
+            <h2 className="text-xl font-bold mb-6">
+                {modoRestringido ? '⚙️ Mi Configuración' : '⚙️ Configuración del Salón'}
+            </h2>
             
-            {/* Configuración Global */}
-            <div className="mb-8 p-4 bg-gray-50 rounded-lg border">
-                <h3 className="font-semibold text-lg mb-4">⚙️ Configuración General</h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Duración por defecto (min)
-                        </label>
-                        <input
-                            type="number"
-                            value={configGlobal.duracionTurnos || 60}
-                            onChange={(e) => setConfigGlobal({
-                                ...configGlobal, 
-                                duracionTurnos: parseInt(e.target.value)
-                            })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm"
-                            min="15"
-                            step="15"
-                        />
+            {/* Configuración Global - Solo visible si NO está en modo restringido */}
+            {!modoRestringido && (
+                <div className="mb-8 p-4 bg-gray-50 rounded-lg border">
+                    <h3 className="font-semibold text-lg mb-4">⚙️ Configuración General</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Duración por defecto (min)
+                            </label>
+                            <input
+                                type="number"
+                                value={configGlobal.duracionTurnos || 60}
+                                onChange={(e) => setConfigGlobal({
+                                    ...configGlobal, 
+                                    duracionTurnos: parseInt(e.target.value)
+                                })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm"
+                                min="15"
+                                step="15"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Intervalo entre turnos (min)
+                            </label>
+                            <input
+                                type="number"
+                                value={configGlobal.intervaloEntreTurnos || 0}
+                                onChange={(e) => setConfigGlobal({
+                                    ...configGlobal, 
+                                    intervaloEntreTurnos: parseInt(e.target.value)
+                                })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm"
+                                min="0"
+                                step="5"
+                            />
+                        </div>
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Intervalo entre turnos (min)
+                    <div className="mb-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={configGlobal.modo24h || false}
+                                onChange={(e) => setConfigGlobal({
+                                    ...configGlobal, 
+                                    modo24h: e.target.checked
+                                })}
+                                className="w-5 h-5 text-pink-600"
+                            />
+                            <span className="text-sm text-gray-700">Modo 24 horas</span>
                         </label>
-                        <input
-                            type="number"
-                            value={configGlobal.intervaloEntreTurnos || 0}
-                            onChange={(e) => setConfigGlobal({
-                                ...configGlobal, 
-                                intervaloEntreTurnos: parseInt(e.target.value)
-                            })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm"
-                            min="0"
-                            step="5"
-                        />
+                    </div>
+                    
+                    <button
+                        onClick={handleGuardarConfigGlobal}
+                        className="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition text-sm"
+                    >
+                        Guardar Configuración Global
+                    </button>
+                </div>
+            )}
+            
+            {/* Selector de trabajadora - Solo visible si NO está en modo restringido */}
+            {!modoRestringido && (
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Seleccionar Trabajadora
+                    </label>
+                    <select
+                        value={trabajadoraSeleccionada || ''}
+                        onChange={(e) => setTrabajadoraSeleccionada(parseInt(e.target.value))}
+                        className="w-full border rounded-lg px-3 py-2"
+                    >
+                        <option value="">Seleccione una trabajadora</option>
+                        {trabajadoras.map(t => (
+                            <option key={t.id} value={t.id}>{t.nombre}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+            
+            {/* En modo restringido, mostrar mensaje */}
+            {modoRestringido && (
+                <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
+                    <div className="flex items-center gap-2">
+                        <div className="icon-info"></div>
+                        <span>Estás configurando tus propios horarios de trabajo</span>
                     </div>
                 </div>
-                
-                <div className="mb-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={configGlobal.modo24h || false}
-                            onChange={(e) => setConfigGlobal({
-                                ...configGlobal, 
-                                modo24h: e.target.checked
-                            })}
-                            className="w-5 h-5 text-pink-600"
-                        />
-                        <span className="text-sm text-gray-700">Modo 24 horas</span>
-                    </label>
-                </div>
-                
-                <button
-                    onClick={handleGuardarConfigGlobal}
-                    className="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition text-sm"
-                >
-                    Guardar Configuración Global
-                </button>
-            </div>
-            
-            {/* Selector de trabajadora */}
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Seleccionar Trabajadora
-                </label>
-                <select
-                    value={trabajadoraSeleccionada || ''}
-                    onChange={(e) => setTrabajadoraSeleccionada(parseInt(e.target.value))}
-                    className="w-full border rounded-lg px-3 py-2"
-                >
-                    <option value="">Seleccione una trabajadora</option>
-                    {trabajadoras.map(t => (
-                        <option key={t.id} value={t.id}>{t.nombre}</option>
-                    ))}
-                </select>
-            </div>
+            )}
             
             {/* Horarios por trabajadora */}
             {trabajadoraSeleccionada && (
                 <div className="space-y-6">
                     <h3 className="font-semibold text-lg">
                         📅 Horarios de {
-                            trabajadoras.find(t => t.id === trabajadoraSeleccionada)?.nombre
+                            modoRestringido 
+                                ? 'mi trabajo'
+                                : trabajadoras.find(t => t.id === trabajadoraSeleccionada)?.nombre
                         }
                     </h3>
                     
@@ -283,7 +312,7 @@ function ConfigPanel() {
                         onClick={handleGuardarHorariosTrabajadora}
                         className="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition"
                     >
-                        Guardar Horarios de {trabajadoras.find(t => t.id === trabajadoraSeleccionada)?.nombre}
+                        Guardar {modoRestringido ? 'Mis Horarios' : `Horarios de ${trabajadoras.find(t => t.id === trabajadoraSeleccionada)?.nombre}`}
                     </button>
                 </div>
             )}
