@@ -58,39 +58,50 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- SCRIPTS - ORDEN CORRECTO PARA LOGIN         -->
+    <!-- SCRIPTS - RUTAS RELATIVAS (SIN /bennet.salon/) -->
     <!-- ============================================ -->
 
-    <!-- PRIMERO: Configuración central de Supabase (¡ESTO FALTABA!) -->
-    <script type="text/javascript" src="/bennet.salon/utils/supabase-config.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/storage.js"></script>
+    <!-- PRIMERO: Configuración central de Supabase -->
+    <script type="text/javascript" src="utils/supabase-config.js"></script>
+    <script type="text/javascript" src="utils/storage.js"></script>
 
     <!-- Script de verificación inmediata -->
     <script type="text/javascript">
         console.log('🔍 VERIFICACIÓN INICIAL LOGIN:');
+        console.log('  window.location.pathname:', window.location.pathname);
+        console.log('  window.location.origin:', window.location.origin);
         console.log('  SUPABASE_URL:', window.SUPABASE_URL);
         console.log('  SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? '✓ Definida' : '✗ Undefined');
         
         if (!window.SUPABASE_URL) {
             console.error('❌ ERROR CRÍTICO: SUPABASE_URL no está definida en login');
+            console.error('   Intentando cargar con ruta alternativa...');
+            
+            // Intentar cargar con ruta absoluta como fallback
+            const script = document.createElement('script');
+            script.src = '/bennet.salon/utils/supabase-config.js';
+            script.onload = () => console.log('✅ supabase-config.js cargado con ruta absoluta');
+            script.onerror = () => console.error('❌ No se pudo cargar supabase-config.js');
+            document.head.appendChild(script);
         } else {
             console.log('✅ Supabase configurado correctamente en login');
         }
     </script>
 
     <!-- SEGUNDO: Utilidades sin JSX -->
-    <script type="text/javascript" src="/bennet.salon/utils/api.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/timeLogic.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/auth-clients.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/auth-trabajadores.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/config.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/servicios.js"></script>
-    <script type="text/javascript" src="/bennet.salon/utils/trabajadoras.js"></script>
+    <script type="text/javascript" src="utils/api.js"></script>
+    <script type="text/javascript" src="utils/timeLogic.js"></script>
+    <script type="text/javascript" src="utils/auth-clients.js"></script>
+    <script type="text/javascript" src="utils/auth-trabajadores.js"></script>
+    <script type="text/javascript" src="utils/config.js"></script>
+    <script type="text/javascript" src="utils/servicios.js"></script>
+    <script type="text/javascript" src="utils/trabajadoras.js"></script>
 
     <!-- Script de verificación de carga -->
     <script type="text/javascript">
         console.log('🔍 VERIFICACIÓN DE CARGA LOGIN:');
-        console.log(' ✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
+        console.log(' ✅ supabase-config:', window.SUPABASE_URL ? 'OK' : 'FALTA');
+        console.log(' ✅ SUPABASE_URL:', window.SUPABASE_URL);
         console.log(' ✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
         console.log(' ✅ auth-clientes:', typeof window.verificarAccesoCliente);
         console.log(' ✅ loginTrabajadora:', typeof window.loginTrabajadora);
@@ -122,6 +133,7 @@
             
             try {
                 console.log('🔐 Intentando login con:', { username, password: '***' });
+                console.log('🔐 SUPABASE_URL en login:', window.SUPABASE_URL);
                 
                 // CASO 1: Es el dueño?
                 if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
@@ -206,7 +218,13 @@
             } else {
                 console.error('❌ loginTrabajadora NO está disponible');
             }
-        }, 1500);
+            
+            if (window.SUPABASE_URL) {
+                console.log('✅ SUPABASE_URL configurada correctamente');
+            } else {
+                console.error('❌ SUPABASE_URL sigue siendo undefined');
+            }
+        }, 2000);
     </script>
 </body>
 </html>

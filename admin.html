@@ -13,7 +13,7 @@
     <div id="root"></div>
 
     <!-- ============================================ -->
-    <!-- SCRIPTS - ORDEN CORRECTO PARA ADMIN         -->
+    <!-- SCRIPTS - RUTAS RELATIVAS (SIN /bennet.salon/) -->
     <!-- ============================================ -->
 
     <!-- PRIMERO: Configuración central de Supabase -->
@@ -23,11 +23,21 @@
     <!-- Script de verificación inmediata -->
     <script type="text/javascript">
         console.log('🔍 VERIFICACIÓN INICIAL ADMIN:');
-        console.log('  SUPABASE_URL:', window.SUPABASE_URL);
-        console.log('  SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? '✓ Definida' : '✗ Undefined');
+        console.log('  window.SUPABASE_URL:', window.SUPABASE_URL);
+        console.log('  window.SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? '✓ Definida' : '✗ Undefined');
+        console.log('  location.pathname:', window.location.pathname);
+        console.log('  location.origin:', window.location.origin);
         
         if (!window.SUPABASE_URL) {
             console.error('❌ ERROR CRÍTICO: SUPABASE_URL no está definida en admin.html');
+            console.error('   Intentando cargar script nuevamente...');
+            
+            // Intentar cargar con ruta absoluta
+            const script = document.createElement('script');
+            script.src = '/bennet.salon/utils/supabase-config.js';
+            script.onload = () => console.log('✅ supabase-config.js cargado con ruta absoluta');
+            script.onerror = () => console.error('❌ No se pudo cargar supabase-config.js');
+            document.head.appendChild(script);
         } else {
             console.log('✅ Supabase configurado correctamente en admin.html');
         }
@@ -45,7 +55,8 @@
     <!-- Script de verificación de carga -->
     <script type="text/javascript">
         console.log('🔍 VERIFICACIÓN DE CARGA ADMIN:');
-        console.log(' ✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
+        console.log(' ✅ supabase-config:', window.SUPABASE_URL ? 'OK' : 'FALTA');
+        console.log(' ✅ SUPABASE_URL:', window.SUPABASE_URL);
         console.log(' ✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
         console.log(' ✅ auth-clientes:', typeof window.verificarAccesoCliente);
         console.log(' ✅ salonConfig:', typeof window.salonConfig);
@@ -68,6 +79,7 @@
             const trabajadoraAuth = localStorage.getItem('trabajadoraAuth');
             
             console.log('🔐 Verificando autenticación:', { isAdmin, trabajadoraAuth: !!trabajadoraAuth });
+            console.log('🔐 SUPABASE_URL en auth:', window.SUPABASE_URL);
             
             // Si hay sesión de admin, verificar tiempo
             if (isAdmin) {
