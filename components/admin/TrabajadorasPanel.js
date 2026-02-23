@@ -1,4 +1,4 @@
-// components/admin/TrabajadorasPanel.js
+// components/admin/TrabajadorasPanel.js - CON TELÉFONO Y CONTRASEÑA
 
 function TrabajadorasPanel() {
     const [trabajadoras, setTrabajadoras] = React.useState([]);
@@ -130,6 +130,13 @@ function TrabajadorasPanel() {
                                             </button>
                                         </div>
                                         <p className="text-sm text-gray-600">{t.especialidad}</p>
+                                        
+                                        {/* 🔥 NUEVO: Mostrar teléfono si existe */}
+                                        {t.telefono && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                📱 {t.telefono}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -162,6 +169,8 @@ function TrabajadoraForm({ trabajadora, onGuardar, onCancelar }) {
     const [form, setForm] = React.useState(trabajadora || {
         nombre: '',
         especialidad: '',
+        telefono: '',        // 🔥 NUEVO
+        password: '',        // 🔥 NUEVO
         color: 'bg-pink-500',
         avatar: '👩‍🎨'
     });
@@ -205,6 +214,43 @@ function TrabajadoraForm({ trabajadora, onGuardar, onCancelar }) {
                     className="w-full border rounded-lg px-3 py-2"
                     required
                 />
+                
+                {/* 🔥 NUEVO: Campo teléfono */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Teléfono <span className="text-xs text-gray-400">(para acceder al panel)</span>
+                    </label>
+                    <div className="flex">
+                        <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                            +53
+                        </span>
+                        <input
+                            type="tel"
+                            value={form.telefono}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, '');
+                                setForm({...form, telefono: value});
+                            }}
+                            className="w-full px-4 py-2 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"
+                            placeholder="Ej: 51111111"
+                        />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">8 dígitos después del +53</p>
+                </div>
+                
+                {/* 🔥 NUEVO: Campo contraseña */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Contraseña <span className="text-xs text-gray-400">(para acceder al panel)</span>
+                    </label>
+                    <input
+                        type="password"
+                        value={form.password}
+                        onChange={(e) => setForm({...form, password: e.target.value})}
+                        className="w-full border rounded-lg px-3 py-2"
+                        placeholder="********"
+                    />
+                </div>
                 
                 <div className="grid grid-cols-2 gap-2">
                     <div>

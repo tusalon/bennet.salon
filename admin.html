@@ -16,6 +16,7 @@
     <script type="text/babel" src="utils/api.js"></script>
     <script type="text/babel" src="utils/timeLogic.js"></script>
     <script type="text/babel" src="utils/auth-clients.js"></script>
+    <script type="text/babel" src="utils/auth-trabajadores.js"></script>  <!-- ✅ NUEVO -->
     <script type="text/babel" src="utils/config.js"></script>
     <script type="text/babel" src="utils/servicios.js"></script>
     <script type="text/babel" src="utils/trabajadoras.js"></script>
@@ -25,18 +26,35 @@
     <script type="text/babel" src="admin-app.js"></script>
 
     <script>
-        // Autenticación
+        // Autenticación (ahora maneja ambos roles)
         (function() {
-            const isAuthenticated = localStorage.getItem('adminAuth') === 'true';
-            const loginTime = localStorage.getItem('adminLoginTime');
-            const isValidSession = loginTime && (Date.now() - parseInt(loginTime)) < 8 * 60 * 60 * 1000;
+            // Verificar si hay sesión de admin O de trabajadora
+            const isAdmin = localStorage.getItem('adminAuth') === 'true';
+            const trabajadoraAuth = localStorage.getItem('trabajadoraAuth');
             
-            if (!isAuthenticated || !isValidSession) {
-                localStorage.removeItem('adminAuth');
-                localStorage.removeItem('adminUser');
-                localStorage.removeItem('adminLoginTime');
-                window.location.href = 'admin-login.html';
+            // Si hay sesión de admin, verificar tiempo
+            if (isAdmin) {
+                const loginTime = localStorage.getItem('adminLoginTime');
+                const isValidSession = loginTime && (Date.now() - parseInt(loginTime)) < 8 * 60 * 60 * 1000;
+                
+                if (!isValidSession) {
+                    localStorage.removeItem('adminAuth');
+                    localStorage.removeItem('adminUser');
+                    localStorage.removeItem('adminLoginTime');
+                    window.location.href = 'admin-login.html';
+                }
+                // Si es admin válido, continúa
+                return;
             }
+            
+            // Si hay sesión de trabajadora, permitir acceso
+            if (trabajadoraAuth) {
+                console.log('👤 Acceso como trabajadora');
+                return;
+            }
+            
+            // Si no hay ninguna sesión, redirigir al login
+            window.location.href = 'admin-login.html';
         })();
     </script>
 </body>

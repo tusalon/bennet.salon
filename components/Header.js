@@ -1,11 +1,17 @@
-// components/Header.js - Bennet Salon (con info del cliente)
+// components/Header.js - Bennet Salon (con botón de admin mejorado)
 
 function Header({ cliente, onLogout }) {
+    const [mostrarOpcionesAdmin, setMostrarOpcionesAdmin] = React.useState(false);
+    
     const goToAdmin = () => {
         const isAuth = localStorage.getItem('adminAuth') === 'true';
-        if (isAuth) {
+        const trabajadoraAuth = localStorage.getItem('trabajadoraAuth');
+        
+        if (isAuth || trabajadoraAuth) {
+            // Si ya hay sesión, va directo
             window.location.href = 'admin.html';
         } else {
+            // Si no, va al login
             window.location.href = 'admin-login.html';
         }
     };
@@ -29,18 +35,37 @@ function Header({ cliente, onLogout }) {
                         </div>
                     )}
                     
-                    {/* Botón de admin */}
-                    <button
-                        onClick={goToAdmin}
-                        className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-pink-100 transition-colors group relative"
-                        title="Panel de Administración"
-                    >
-                        <div className="icon-shield-check text-gray-500 group-hover:text-pink-600"></div>
+                    {/* 🔥 BOTÓN DE ADMIN MEJORADO */}
+                    <div className="relative">
+                        <button
+                            onClick={goToAdmin}
+                            className="flex items-center gap-2 bg-gray-100 hover:bg-pink-100 px-3 py-2 rounded-full transition-all transform hover:scale-105 border border-gray-200 shadow-sm"
+                            title="Panel de Administración"
+                            onMouseEnter={() => setMostrarOpcionesAdmin(true)}
+                            onMouseLeave={() => setMostrarOpcionesAdmin(false)}
+                        >
+                            <div className="icon-shield-check text-gray-600 group-hover:text-pink-600"></div>
+                            <span className="text-sm font-medium text-gray-700 hidden sm:inline">Admin</span>
+                            
+                            {/* Indicador de sesión activa */}
+                            {(localStorage.getItem('adminAuth') === 'true' || localStorage.getItem('trabajadoraAuth')) && (
+                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            )}
+                        </button>
                         
-                        {localStorage.getItem('adminAuth') === 'true' && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+                        {/* Tooltip informativo */}
+                        {mostrarOpcionesAdmin && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-xs text-gray-600 z-50">
+                                {localStorage.getItem('adminAuth') === 'true' ? (
+                                    <p>✅ Sesión de admin activa</p>
+                                ) : localStorage.getItem('trabajadoraAuth') ? (
+                                    <p>✅ Sesión de trabajadora activa</p>
+                                ) : (
+                                    <p>🔐 Acceder al panel</p>
+                                )}
+                            </div>
                         )}
-                    </button>
+                    </div>
 
                     {/* Botón de logout para cliente */}
                     {cliente && onLogout && (

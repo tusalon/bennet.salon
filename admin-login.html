@@ -22,59 +22,120 @@
                 <div class="icon-shield-check text-3xl text-pink-600">🔒</div>
             </div>
             <h1 class="text-3xl font-bold text-gray-800">Bennet Salon</h1>
-            <p class="text-gray-500">Panel de Administración</p>
+            <p class="text-gray-500">Acceso al Panel</p>
         </div>
+        
+        <div id="mensaje" class="mb-4 text-sm text-center hidden"></div>
         
         <form id="loginForm" class="space-y-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Usuario</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Usuario / Teléfono</label>
                 <input type="text" id="username" required
                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"
-                       placeholder="Ingresa tu usuario">
+                       placeholder="bennet o 5351111111">
+                <p class="text-xs text-gray-400 mt-1">Si sos trabajador, usá tu número de teléfono</p>
             </div>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
                 <input type="password" id="password" required
                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"
-                       placeholder="Ingresa tu contraseña">
+                       placeholder="••••••••">
             </div>
             
             <button type="submit" 
                     class="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-lg font-semibold hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105">
-                Entrar al Panel
+                Entrar
             </button>
         </form>
         
         <div id="errorMsg" class="mt-4 text-red-500 text-sm text-center hidden"></div>
         
         <div class="mt-6 text-center text-xs text-gray-400">
-            Acceso exclusivo para administradores
+            <p>👑 Dueño: usuario <strong>bennet</strong></p>
+            <p class="mt-1">👩‍🎨 Trabajadoras: usá tu teléfono</p>
         </div>
     </div>
 
     <script>
-        // Credenciales del dueño (puedes cambiarlas después)
-        const VALID_USERNAME = 'bennet';
-        const VALID_PASSWORD = 'bennet2025';
+        // Credenciales del dueño
+        const ADMIN_USERNAME = 'bennet';
+        const ADMIN_PASSWORD = 'bennet2025';
         
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+            const mensaje = document.getElementById('mensaje');
             
-            if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-                // Guardar sesión
-                localStorage.setItem('adminAuth', 'true');
-                localStorage.setItem('adminUser', username);
-                localStorage.setItem('adminLoginTime', Date.now());
+            errorMsg.classList.add('hidden');
+            mensaje.classList.add('hidden');
+            
+            // Mostrar mensaje de carga
+            mensaje.textContent = 'Verificando...';
+            mensaje.classList.remove('hidden');
+            mensaje.classList.add('text-blue-600', 'bg-blue-50', 'p-2', 'rounded-lg');
+            
+            try {
+                // CASO 1: Es el dueño?
+                if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                    console.log('✅ Login exitoso como dueño');
+                    
+                    // Guardar sesión de admin
+                    localStorage.setItem('adminAuth', 'true');
+                    localStorage.setItem('adminUser', username);
+                    localStorage.setItem('adminLoginTime', Date.now());
+                    localStorage.setItem('userRole', 'admin');
+                    
+                    // Limpiar cualquier sesión de trabajadora
+                    localStorage.removeItem('trabajadoraAuth');
+                    
+                    mensaje.classList.add('hidden');
+                    window.location.href = 'admin.html';
+                    return;
+                }
                 
-                // Redirigir al panel
-                window.location.href = 'admin.html';
-            } else {
-                document.getElementById('errorMsg').textContent = 'Usuario o contraseña incorrectos';
-                document.getElementById('errorMsg').classList.remove('hidden');
+                // CASO 2: Podría ser una trabajadora (el username parece un número)
+                if (/^\d+$/.test(username)) {
+                    console.log('🔍 Intentando login como trabajadora:', username);
+                    
+                    // Intentar login como trabajadora
+                    const trabajadora = await window.loginTrabajadora?.(username, password);
+                    
+                    if (trabajadora) {
+                        console.log('✅ Login exitoso como trabajadora:', trabajadora.nombre);
+                        
+                        // Guardar sesión de trabajadora (NO de admin)
+                        // No usamos adminAuth para diferenciar
+                        localStorage.setItem('trabajadoraAuth', JSON.stringify({
+                            id: trabajadora.id,
+                            nombre: trabajadora.nombre,
+                            telefono: trabajadora.telefono
+                        }));
+                        localStorage.setItem('userRole', 'trabajadora');
+                        
+                        // Limpiar cualquier sesión de admin previa
+                        localStorage.removeItem('adminAuth');
+                        localStorage.removeItem('adminUser');
+                        
+                        mensaje.classList.add('hidden');
+                        window.location.href = 'admin.html';
+                        return;
+                    }
+                }
+                
+                // Si llegamos aquí, las credenciales son incorrectas
+                errorMsg.textContent = 'Usuario o contraseña incorrectos';
+                errorMsg.classList.remove('hidden');
+                mensaje.classList.add('hidden');
+                
+            } catch (error) {
+                console.error('Error en login:', error);
+                errorMsg.textContent = 'Error al conectar. Intentá de nuevo.';
+                errorMsg.classList.remove('hidden');
+                mensaje.classList.add('hidden');
             }
         });
     </script>

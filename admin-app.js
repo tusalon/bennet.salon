@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CORREGIDA)
+// admin-app.js - Bennet Salon (VERSIÓN CON SOPORTE PARA TRABAJADORAS)
 
 // 🔥 CONFIGURACIÓN SUPABASE
 const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
@@ -48,6 +48,10 @@ function AdminApp() {
     const [filterDate, setFilterDate] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState('activas');
     
+    // 🔥 NUEVO: Detectar rol del usuario
+    const [userRole, setUserRole] = React.useState('admin'); // 'admin' o 'trabajadora'
+    const [trabajadora, setTrabajadora] = React.useState(null);
+    
     // Pestaña activa
     const [tabActivo, setTabActivo] = React.useState('reservas');
     
@@ -60,7 +64,23 @@ function AdminApp() {
     const [cargandoClientes, setCargandoClientes] = React.useState(false);
 
     // ============================================
-    // FUNCIONES DE CLIENTES (VERSIÓN CORREGIDA)
+    // DETECTAR ROL DEL USUARIO AL INICIAR
+    // ============================================
+    React.useEffect(() => {
+        // Verificar si hay una trabajadora autenticada
+        const trabajadoraAuth = window.getTrabajadoraAutenticada?.();
+        if (trabajadoraAuth) {
+            console.log('👤 Usuario detectado como trabajadora:', trabajadoraAuth);
+            setUserRole('trabajadora');
+            setTrabajadora(trabajadoraAuth);
+        } else {
+            console.log('👑 Usuario detectado como admin');
+            setUserRole('admin');
+        }
+    }, []);
+
+    // ============================================
+    // FUNCIONES DE CLIENTES
     // ============================================
     
     const loadClientesPendientes = async () => {
@@ -184,7 +204,17 @@ function AdminApp() {
     const fetchBookings = async () => {
         setLoading(true);
         try {
-            const data = await getAllBookings();
+            let data;
+            
+            // Si es trabajadora, obtener solo sus reservas
+            if (userRole === 'trabajadora' && trabajadora) {
+                console.log(`📋 Cargando reservas de trabajadora ${trabajadora.id}...`);
+                data = await window.getReservasPorTrabajadora?.(trabajadora.id, false) || [];
+            } else {
+                // Si es admin, obtener todas
+                data = await getAllBookings();
+            }
+            
             data.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
             setBookings(data);
         } catch (error) {
@@ -197,15 +227,17 @@ function AdminApp() {
 
     React.useEffect(() => {
         fetchBookings();
-        loadClientesAutorizados();
+        
+        // Solo cargar clientes si es admin
+        if (userRole === 'admin') {
+            loadClientesAutorizados();
+        }
+        
         console.log('🔍 Verificando auth:', {
-            getClientesPendientes: typeof window.getClientesPendientes,
-            aprobarCliente: typeof window.aprobarCliente,
-            rechazarCliente: typeof window.rechazarCliente,
-            getClientesAutorizados: typeof window.getClientesAutorizados,
-            eliminarClienteAutorizado: typeof window.eliminarClienteAutorizado
+            userRole,
+            trabajadora
         });
-    }, []);
+    }, [userRole, trabajadora]);
 
     const handleCancel = async (id, bookingData) => {
         if (!confirm(`¿Cancelar reserva de ${bookingData.cliente_nombre}?`)) return;
@@ -222,9 +254,12 @@ function AdminApp() {
 
     const handleLogout = () => {
         if (confirm('¿Cerrar sesión?')) {
+            // Limpiar todo
             localStorage.removeItem('adminAuth');
             localStorage.removeItem('adminUser');
             localStorage.removeItem('adminLoginTime');
+            localStorage.removeItem('trabajadoraAuth');
+            localStorage.removeItem('userRole');
             window.location.href = 'admin-login.html';
         }
     };
@@ -233,14 +268,18 @@ function AdminApp() {
     // FILTROS
     // ============================================
     const getFilteredBookings = () => {
+        // Primero filtrar por fecha si hay
         let filtered = filterDate
             ? bookings.filter(b => b.fecha === filterDate)
             : [...bookings];
+        
+        // Luego por estado
         if (statusFilter === 'activas') {
             filtered = filtered.filter(b => b.estado !== 'Cancelado');
         } else if (statusFilter === 'canceladas') {
             filtered = filtered.filter(b => b.estado === 'Cancelado');
         }
+        
         return filtered;
     };
 
@@ -257,7 +296,12 @@ function AdminApp() {
                 
                 {/* ===== HEADER ===== */}
                 <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
-                    <h1 className="text-xl font-bold">Panel Admin - Bennet Salon</h1>
+                    <h1 className="text-xl font-bold">
+                        {userRole === 'trabajadora' 
+                            ? `Panel de ${trabajadora?.nombre}`
+                            : 'Panel Admin - Bennet Salon'
+                        }
+                    </h1>
                     <div className="flex gap-2">
                         <button 
                             onClick={fetchBookings} 
@@ -279,11 +323,14 @@ function AdminApp() {
                 {/* ===== PESTAÑAS DE NAVEGACIÓN ===== */}
                 <div className="bg-white p-2 rounded-xl shadow-sm flex flex-wrap gap-2">
                     {[
-                        { id: 'reservas', icono: '📅', label: 'Reservas' },
-                        { id: 'configuracion', icono: '⚙️', label: 'Configuración' },
-                        { id: 'servicios', icono: '💅', label: 'Servicios' },
-                        { id: 'trabajadoras', icono: '👥', label: 'Trabajadoras' },
-                        { id: 'clientes', icono: '👤', label: 'Clientes' }
+                        { id: 'reservas', icono: '📅', label: userRole === 'trabajadora' ? 'Mis Reservas' : 'Reservas' },
+                        // Solo mostrar estas pestañas si es ADMIN
+                        ...(userRole === 'admin' ? [
+                            { id: 'configuracion', icono: '⚙️', label: 'Configuración' },
+                            { id: 'servicios', icono: '💅', label: 'Servicios' },
+                            { id: 'trabajadoras', icono: '👥', label: 'Trabajadoras' },
+                            { id: 'clientes', icono: '👤', label: 'Clientes' }
+                        ] : [])
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -302,17 +349,17 @@ function AdminApp() {
 
                 {/* ===== CONTENIDO SEGÚN PESTAÑA ===== */}
                 
-                {/* PESTAÑA: CONFIGURACIÓN */}
-                {tabActivo === 'configuracion' && <ConfigPanel />}
+                {/* PESTAÑA: CONFIGURACIÓN (solo admin) */}
+                {userRole === 'admin' && tabActivo === 'configuracion' && <ConfigPanel />}
 
-                {/* PESTAÑA: SERVICIOS */}
-                {tabActivo === 'servicios' && <ServiciosPanel />}
+                {/* PESTAÑA: SERVICIOS (solo admin) */}
+                {userRole === 'admin' && tabActivo === 'servicios' && <ServiciosPanel />}
 
-                {/* PESTAÑA: TRABAJADORAS */}
-                {tabActivo === 'trabajadoras' && <TrabajadorasPanel />}
+                {/* PESTAÑA: TRABAJADORAS (solo admin) */}
+                {userRole === 'admin' && tabActivo === 'trabajadoras' && <TrabajadorasPanel />}
 
-                {/* PESTAÑA: CLIENTES */}
-                {tabActivo === 'clientes' && (
+                {/* PESTAÑA: CLIENTES (solo admin) */}
+                {userRole === 'admin' && tabActivo === 'clientes' && (
                     <div className="space-y-4">
                         {/* Indicador de carga */}
                         {cargandoClientes && (
@@ -470,9 +517,26 @@ function AdminApp() {
                     </div>
                 )}
 
-                {/* PESTAÑA: RESERVAS */}
+                {/* PESTAÑA: RESERVAS (visible para todos) */}
                 {tabActivo === 'reservas' && (
                     <>
+                        {/* Banner para trabajadoras */}
+                        {userRole === 'trabajadora' && trabajadora && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="icon-user-check text-blue-600 text-xl"></div>
+                                    <div>
+                                        <p className="text-blue-800 font-medium">
+                                            Hola {trabajadora.nombre} 👋
+                                        </p>
+                                        <p className="text-blue-600 text-sm">
+                                            Mostrando solo tus reservas ({bookings.length} en total)
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* FILTROS DE RESERVAS */}
                         <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
                             <div className="flex flex-wrap gap-3 items-center">
@@ -539,6 +603,9 @@ function AdminApp() {
                                 {filterDate && <span> • Fecha: {filterDate}</span>}
                                 {statusFilter !== 'todas' && (
                                     <span> • {statusFilter === 'activas' ? 'Activas' : 'Canceladas'}</span>
+                                )}
+                                {userRole === 'trabajadora' && (
+                                    <span> • Solo tus reservas</span>
                                 )}
                             </div>
                         </div>
@@ -608,11 +675,14 @@ function AdminApp() {
                                         <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                             <tr>
                                                 <th className="p-4 text-left text-sm font-semibold text-gray-600">Fecha/Hora</th>
-                                                <th className="text-left text-sm font-semibold text-gray-600">Cliente</th>
-                                                <th className="text-left text-sm font-semibold text-gray-600">WhatsApp</th>
-                                                <th className="text-left text-sm font-semibold text-gray-600">Servicio</th>
-                                                <th className="text-left text-sm font-semibold text-gray-600">Estado</th>
-                                                <th className="text-left text-sm font-semibold text-gray-600">Acción</th>
+                                                <th className="p-4 text-left text-sm font-semibold text-gray-600">Cliente</th>
+                                                <th className="p-4 text-left text-sm font-semibold text-gray-600">WhatsApp</th>
+                                                <th className="p-4 text-left text-sm font-semibold text-gray-600">Servicio</th>
+                                                {userRole === 'admin' && (
+                                                    <th className="p-4 text-left text-sm font-semibold text-gray-600">Trabajador</th>
+                                                )}
+                                                <th className="p-4 text-left text-sm font-semibold text-gray-600">Estado</th>
+                                                <th className="p-4 text-left text-sm font-semibold text-gray-600">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -623,20 +693,17 @@ function AdminApp() {
                                                         <div className="text-sm text-gray-500">{formatTo12Hour(b.hora_inicio)}</div>
                                                     </td>
                                                     <td className="font-medium">{b.cliente_nombre}</td>
+                                                    <td>{b.cliente_whatsapp}</td>
+                                                    <td>{b.servicio}</td>
+                                                    {userRole === 'admin' && (
+                                                        <td>
+                                                            <span className="px-2 py-1 bg-pink-100 text-pink-700 rounded-full text-xs">
+                                                                {b.trabajador_nombre || 'No asignado'}
+                                                            </span>
+                                                        </td>
+                                                    )}
                                                     <td>
-                                                        <a href={`https://wa.me/${b.cliente_whatsapp}`} target="_blank" 
-                                                           className="text-green-600 hover:text-green-700 flex items-center gap-1">
-                                                            <div className="icon-message-circle text-sm"></div>
-                                                            {b.cliente_whatsapp}
-                                                        </a>
-                                                    </td>
-                                                    <td className="max-w-xs">
-                                                        <div className="truncate" title={b.servicio}>
-                                                            {b.servicio}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold
                                                             ${b.estado === 'Confirmado' ? 'bg-green-100 text-green-700' : 
                                                               b.estado === 'Reservado' ? 'bg-yellow-100 text-yellow-700' : 
                                                               'bg-red-100 text-red-700'}`}>
@@ -658,7 +725,7 @@ function AdminApp() {
                                             
                                             {filteredBookings.length === 0 && (
                                                 <tr>
-                                                    <td colSpan="6" className="text-center py-12 text-gray-500">
+                                                    <td colSpan={userRole === 'admin' ? "7" : "6"} className="text-center py-12 text-gray-500">
                                                         <div className="icon-calendar-x text-3xl text-gray-300 mb-2"></div>
                                                         No hay reservas para mostrar
                                                     </td>
