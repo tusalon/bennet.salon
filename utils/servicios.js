@@ -2,12 +2,10 @@
 
 console.log('💅 servicios.js cargado (modo Supabase)');
 
-// ❌ ELIMINAR esta línea si existe:
-// let configuracionGlobal = {...};
-
 let serviciosCache = [];
 let ultimaActualizacionServicios = 0;
-const CACHE_DURATION = 5 * 60 * 1000;
+// 🔥 CAMBIADO: usar nombre diferente para evitar conflicto
+const CACHE_DURATION_SERVICIOS = 5 * 60 * 1000; 
 
 // ============================================
 // FUNCIONES CON SUPABASE
@@ -45,7 +43,8 @@ async function cargarServiciosDesdeDB() {
 
 window.salonServicios = {
     getAll: async function(activos = true) {
-        if (Date.now() - ultimaActualizacionServicios < CACHE_DURATION && serviciosCache.length > 0) {
+        // 🔥 Usar la constante renombrada
+        if (Date.now() - ultimaActualizacionServicios < CACHE_DURATION_SERVICIOS && serviciosCache.length > 0) {
             if (activos) {
                 return serviciosCache.filter(s => s.activo === true);
             }

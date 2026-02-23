@@ -2,12 +2,10 @@
 
 console.log('👥 trabajadoras.js cargado (modo Supabase)');
 
-// ❌ ELIMINAR esta línea si existe:
-// let configuracionGlobal = {...};
-
 let trabajadorasCache = [];
 let ultimaActualizacionTrabajadoras = 0;
-const CACHE_DURATION = 5 * 60 * 1000;
+// 🔥 CAMBIADO: usar nombre diferente para evitar conflicto
+const CACHE_DURATION_TRABAJADORAS = 5 * 60 * 1000;
 
 async function cargarTrabajadorasDesdeDB() {
     try {
@@ -41,7 +39,8 @@ async function cargarTrabajadorasDesdeDB() {
 
 window.salonTrabajadoras = {
     getAll: async function(activas = true) {
-        if (Date.now() - ultimaActualizacionTrabajadoras < CACHE_DURATION && trabajadorasCache.length > 0) {
+        // 🔥 Usar la constante renombrada
+        if (Date.now() - ultimaActualizacionTrabajadoras < CACHE_DURATION_TRABAJADORAS && trabajadorasCache.length > 0) {
             if (activas) {
                 return trabajadorasCache.filter(t => t.activo === true);
             }
