@@ -1,4 +1,4 @@
-// components/ClientAuthScreen.js - VERSIÓN COMPLETA CON SUPABASE
+// components/ClientAuthScreen.js - VERSIÓN COMPLETA CORREGIDA
 
 function ClientAuthScreen({ onAccessGranted }) {
     const [nombre, setNombre] = React.useState('');
@@ -7,10 +7,15 @@ function ClientAuthScreen({ onAccessGranted }) {
     const [error, setError] = React.useState('');
     const [clienteAutorizado, setClienteAutorizado] = React.useState(null);
     const [verificando, setVerificando] = React.useState(false);
+    const [yaTieneSolicitud, setYaTieneSolicitud] = React.useState(false);
+    const [estadoRechazado, setEstadoRechazado] = React.useState(false);
 
     const verificarNumero = async (numero) => {
         if (numero.length < 8) {
             setClienteAutorizado(null);
+            setYaTieneSolicitud(false);
+            setEstadoRechazado(false);
+            setError('');
             return;
         }
         
@@ -21,14 +26,47 @@ function ClientAuthScreen({ onAccessGranted }) {
         
         try {
             console.log('🔍 Verificando número:', numeroCompleto);
+            
+            // Verificar si está autorizado
             const existe = await window.verificarAccesoCliente(numeroCompleto);
-            console.log('📋 Resultado:', existe);
+            console.log('📋 Resultado autorizado:', existe);
             
             if (existe) {
                 setClienteAutorizado(existe);
+                setYaTieneSolicitud(false);
+                setEstadoRechazado(false);
                 setError('');
             } else {
                 setClienteAutorizado(null);
+                
+                // Obtener estado de solicitud si existe
+                if (window.obtenerEstadoSolicitud) {
+                    const estado = await window.obtenerEstadoSolicitud(numeroCompleto);
+                    console.log('📋 Estado de solicitud:', estado);
+                    
+                    if (estado && estado.existe) {
+                        
+                        if (estado.estado === 'pendiente') {
+                            setYaTieneSolicitud(true);
+                            setEstadoRechazado(false);
+                            setError('Ya tenés una solicitud pendiente. El dueño te contactará pronto.');
+                        } 
+                        else if (estado.estado === 'rechazado') {
+                            setYaTieneSolicitud(false); // Permitir reenvío
+                            setEstadoRechazado(true);
+                            setError('Tu solicitud anterior fue rechazada. Podés volver a intentarlo.');
+                        }
+                        else {
+                            setYaTieneSolicitud(true);
+                            setEstadoRechazado(false);
+                            setError('Este número ya fue registrado. Contactá al dueño si tenés dudas.');
+                        }
+                    } else {
+                        setYaTieneSolicitud(false);
+                        setEstadoRechazado(false);
+                        setError('');
+                    }
+                }
             }
         } catch (err) {
             console.error('Error verificando:', err);
@@ -51,29 +89,21 @@ function ClientAuthScreen({ onAccessGranted }) {
         const numeroCompleto = `53${numeroLimpio}`;
         
         try {
-            // Si ya está autorizado
+            // Verificar si ya está autorizado como cliente
             const autorizado = await window.verificarAccesoCliente(numeroCompleto);
+            
             if (autorizado) {
                 console.log('✅ Acceso directo para:', autorizado);
                 onAccessGranted(autorizado.nombre, numeroCompleto);
                 return;
             }
             
-            // Verificar si ya tiene solicitud pendiente
-            const pendiente = await window.isClientePendiente(numeroCompleto);
-            if (pendiente) {
-                setError('Ya tenés una solicitud pendiente. El dueño te contactará pronto.');
-                return;
-            }
-            
-            // Agregar solicitud
+            // Agregar solicitud (ahora maneja rechazados automáticamente)
             const agregado = await window.agregarClientePendiente(nombre, numeroCompleto);
             
             if (agregado) {
                 setSolicitudEnviada(true);
                 setError('');
-            } else {
-                setError('Error al enviar la solicitud. Intentá de nuevo.');
             }
         } catch (err) {
             console.error('Error en submit:', err);
@@ -133,7 +163,6 @@ function ClientAuthScreen({ onAccessGranted }) {
     return (
         <div className="min-h-screen bg-gradient-to-b from-pink-50 to-white flex flex-col items-center justify-center p-6 animate-fade-in">
             <div className="max-w-md w-full">
-                {/* Logo o título */}
                 <div className="text-center mb-8">
                     <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <div className="icon-shield-check text-3xl text-pink-600"></div>
@@ -187,7 +216,6 @@ function ClientAuthScreen({ onAccessGranted }) {
                             <p className="text-xs text-gray-400 mt-1">Ingresá solo los números después del +53</p>
                         </div>
 
-                        {/* Indicador de verificación */}
                         {verificando && (
                             <div className="text-blue-600 text-sm bg-blue-50 p-2 rounded-lg flex items-center gap-2">
                                 <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
@@ -195,7 +223,6 @@ function ClientAuthScreen({ onAccessGranted }) {
                             </div>
                         )}
 
-                        {/* Mensaje si ya está autorizado */}
                         {clienteAutorizado && !verificando && (
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-fade-in">
                                 <div className="flex items-start gap-3">
@@ -213,13 +240,32 @@ function ClientAuthScreen({ onAccessGranted }) {
                         )}
 
                         {error && (
-                            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg flex items-start gap-2">
-                                <div className="icon-triangle-alert mt-0.5"></div>
+                            <div className={`text-sm p-3 rounded-lg flex items-start gap-2 ${
+                                estadoRechazado 
+                                    ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' 
+                                    : 'bg-red-50 text-red-600'
+                            }`}>
+                                <div className={`${estadoRechazado ? 'icon-alert-circle' : 'icon-triangle-alert'} mt-0.5`}></div>
                                 {error}
                             </div>
                         )}
 
-                        {/* Botón de acceso directo o solicitud */}
+                        {yaTieneSolicitud && !clienteAutorizado && !verificando && !estadoRechazado && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p className="text-yellow-700 text-sm">
+                                    Este número ya fue registrado y está pendiente de aprobación.
+                                </p>
+                            </div>
+                        )}
+
+                        {estadoRechazado && !clienteAutorizado && !verificando && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-blue-700 text-sm font-medium">
+                                    Podés volver a intentarlo con la misma información.
+                                </p>
+                            </div>
+                        )}
+
                         {clienteAutorizado && !verificando ? (
                             <button
                                 type="button"
@@ -232,7 +278,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                         ) : (
                             <button
                                 type="submit"
-                                disabled={verificando}
+                                disabled={verificando || (yaTieneSolicitud && !estadoRechazado)}
                                 className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {verificando ? 'Verificando...' : 'Solicitar Acceso'}
@@ -240,8 +286,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                         )}
                     </form>
 
-                    {/* Mensaje adicional */}
-                    {!clienteAutorizado && !verificando && (
+                    {!clienteAutorizado && !verificando && !yaTieneSolicitud && !estadoRechazado && (
                         <div className="mt-6 text-xs text-center text-gray-400">
                             <p>¿Ya tenés acceso?</p>
                             <p className="mt-1">Ingresá tu número y si estás autorizado, aparecerá el botón para entrar.</p>
