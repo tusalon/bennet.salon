@@ -12,14 +12,49 @@
 <body class="bg-gray-100">
     <div id="root"></div>
 
-    <!-- Scripts en orden -->
-    <script type="text/babel" src="utils/api.js"></script>
-    <script type="text/babel" src="utils/timeLogic.js"></script>
-    <script type="text/babel" src="utils/auth-clients.js"></script>
-    <script type="text/babel" src="utils/auth-trabajadores.js"></script>  <!-- ✅ NUEVO -->
-    <script type="text/babel" src="utils/config.js"></script>
-    <script type="text/babel" src="utils/servicios.js"></script>
-    <script type="text/babel" src="utils/trabajadoras.js"></script>
+    <!-- ============================================ -->
+    <!-- SCRIPTS - ORDEN CORRECTO PARA ADMIN         -->
+    <!-- ============================================ -->
+
+    <!-- PRIMERO: Configuración central de Supabase -->
+    <script type="text/javascript" src="utils/supabase-config.js"></script>
+    <script type="text/javascript" src="utils/storage.js"></script>
+
+    <!-- Script de verificación inmediata -->
+    <script type="text/javascript">
+        console.log('🔍 VERIFICACIÓN INICIAL ADMIN:');
+        console.log('  SUPABASE_URL:', window.SUPABASE_URL);
+        console.log('  SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? '✓ Definida' : '✗ Undefined');
+        
+        if (!window.SUPABASE_URL) {
+            console.error('❌ ERROR CRÍTICO: SUPABASE_URL no está definida en admin.html');
+        } else {
+            console.log('✅ Supabase configurado correctamente en admin.html');
+        }
+    </script>
+
+    <!-- SEGUNDO: Utilidades sin JSX -->
+    <script type="text/javascript" src="utils/api.js"></script>
+    <script type="text/javascript" src="utils/timeLogic.js"></script>
+    <script type="text/javascript" src="utils/auth-clients.js"></script>
+    <script type="text/javascript" src="utils/auth-trabajadores.js"></script>
+    <script type="text/javascript" src="utils/config.js"></script>
+    <script type="text/javascript" src="utils/servicios.js"></script>
+    <script type="text/javascript" src="utils/trabajadoras.js"></script>
+
+    <!-- Script de verificación de carga -->
+    <script type="text/javascript">
+        console.log('🔍 VERIFICACIÓN DE CARGA ADMIN:');
+        console.log(' ✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
+        console.log(' ✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
+        console.log(' ✅ auth-clientes:', typeof window.verificarAccesoCliente);
+        console.log(' ✅ salonConfig:', typeof window.salonConfig);
+        console.log(' ✅ salonServicios:', typeof window.salonServicios);
+        console.log(' ✅ salonTrabajadoras:', typeof window.salonTrabajadoras);
+        console.log(' ✅ storage:', typeof window.subirImagenServicio);
+    </script>
+
+    <!-- TERCERO: Componentes con JSX -->
     <script type="text/babel" src="components/admin/ConfigPanel.js"></script>
     <script type="text/babel" src="components/admin/ServiciosPanel.js"></script>
     <script type="text/babel" src="components/admin/TrabajadorasPanel.js"></script>
@@ -31,6 +66,8 @@
             // Verificar si hay sesión de admin O de trabajadora
             const isAdmin = localStorage.getItem('adminAuth') === 'true';
             const trabajadoraAuth = localStorage.getItem('trabajadoraAuth');
+            
+            console.log('🔐 Verificando autenticación:', { isAdmin, trabajadoraAuth: !!trabajadoraAuth });
             
             // Si hay sesión de admin, verificar tiempo
             if (isAdmin) {
@@ -54,6 +91,7 @@
             }
             
             // Si no hay ninguna sesión, redirigir al login
+            console.log('🚫 No hay sesión, redirigiendo a login');
             window.location.href = 'admin-login.html';
         })();
     </script>

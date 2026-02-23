@@ -57,7 +57,28 @@
         </div>
     </div>
 
-    <!-- 🔥 SCRIPTS DE UTILIDADES (sin Babel, porque no tienen JSX) -->
+    <!-- ============================================ -->
+    <!-- SCRIPTS - ORDEN CORRECTO PARA LOGIN         -->
+    <!-- ============================================ -->
+
+    <!-- PRIMERO: Configuración central de Supabase (¡ESTO FALTABA!) -->
+    <script type="text/javascript" src="/bennet.salon/utils/supabase-config.js"></script>
+    <script type="text/javascript" src="/bennet.salon/utils/storage.js"></script>
+
+    <!-- Script de verificación inmediata -->
+    <script type="text/javascript">
+        console.log('🔍 VERIFICACIÓN INICIAL LOGIN:');
+        console.log('  SUPABASE_URL:', window.SUPABASE_URL);
+        console.log('  SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? '✓ Definida' : '✗ Undefined');
+        
+        if (!window.SUPABASE_URL) {
+            console.error('❌ ERROR CRÍTICO: SUPABASE_URL no está definida en login');
+        } else {
+            console.log('✅ Supabase configurado correctamente en login');
+        }
+    </script>
+
+    <!-- SEGUNDO: Utilidades sin JSX -->
     <script type="text/javascript" src="/bennet.salon/utils/api.js"></script>
     <script type="text/javascript" src="/bennet.salon/utils/timeLogic.js"></script>
     <script type="text/javascript" src="/bennet.salon/utils/auth-clients.js"></script>
@@ -65,6 +86,18 @@
     <script type="text/javascript" src="/bennet.salon/utils/config.js"></script>
     <script type="text/javascript" src="/bennet.salon/utils/servicios.js"></script>
     <script type="text/javascript" src="/bennet.salon/utils/trabajadoras.js"></script>
+
+    <!-- Script de verificación de carga -->
+    <script type="text/javascript">
+        console.log('🔍 VERIFICACIÓN DE CARGA LOGIN:');
+        console.log(' ✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
+        console.log(' ✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
+        console.log(' ✅ auth-clientes:', typeof window.verificarAccesoCliente);
+        console.log(' ✅ loginTrabajadora:', typeof window.loginTrabajadora);
+        console.log(' ✅ salonConfig:', typeof window.salonConfig);
+        console.log(' ✅ salonServicios:', typeof window.salonServicios);
+        console.log(' ✅ salonTrabajadoras:', typeof window.salonTrabajadoras);
+    </script>
 
     <script>
         // Credenciales del dueño
@@ -88,6 +121,8 @@
             mensaje.classList.add('text-blue-600', 'bg-blue-50', 'p-2', 'rounded-lg');
             
             try {
+                console.log('🔐 Intentando login con:', { username, password: '***' });
+                
                 // CASO 1: Es el dueño?
                 if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
                     console.log('✅ Login exitoso como dueño');
@@ -110,8 +145,17 @@
                 if (/^\d+$/.test(username)) {
                     console.log('🔍 Intentando login como trabajadora:', username);
                     
+                    // Verificar que loginTrabajadora esté disponible
+                    if (typeof window.loginTrabajadora !== 'function') {
+                        console.error('❌ loginTrabajadora no está disponible');
+                        errorMsg.textContent = 'Error: Sistema de autenticación no disponible';
+                        errorMsg.classList.remove('hidden');
+                        mensaje.classList.add('hidden');
+                        return;
+                    }
+                    
                     // Intentar login como trabajadora
-                    const trabajadora = await window.loginTrabajadora?.(username, password);
+                    const trabajadora = await window.loginTrabajadora(username, password);
                     
                     if (trabajadora) {
                         console.log('✅ Login exitoso como trabajadora:', trabajadora.nombre);
@@ -120,7 +164,8 @@
                         localStorage.setItem('trabajadoraAuth', JSON.stringify({
                             id: trabajadora.id,
                             nombre: trabajadora.nombre,
-                            telefono: trabajadora.telefono
+                            telefono: trabajadora.telefono,
+                            nivel: trabajadora.nivel || 1
                         }));
                         localStorage.setItem('userRole', 'trabajadora');
                         
@@ -142,28 +187,26 @@
                 mensaje.classList.add('hidden');
                 
             } catch (error) {
-                console.error('Error en login:', error);
+                console.error('❌ Error en login:', error);
                 errorMsg.textContent = 'Error al conectar. Intentá de nuevo.';
                 errorMsg.classList.remove('hidden');
                 mensaje.classList.add('hidden');
             }
         });
 
-        // 🔥 Verificación de carga de scripts
+        // Verificación de carga de scripts
         setTimeout(() => {
-            console.log('🔍 VERIFICACIÓN DE CARGAS:');
-            console.log('auth-clients.js:', typeof window.verificarAccesoCliente);
-            console.log('auth-trabajadores.js:', typeof window.loginTrabajadora);
-            console.log('config.js:', typeof window.salonConfig);
-            console.log('servicios.js:', typeof window.salonServicios);
-            console.log('trabajadoras.js:', typeof window.salonTrabajadoras);
+            console.log('🔍 VERIFICACIÓN FINAL LOGIN:');
+            console.log('  SUPABASE_URL:', window.SUPABASE_URL);
+            console.log('  loginTrabajadora:', typeof window.loginTrabajadora);
+            console.log('  verificarTrabajadoraPorTelefono:', typeof window.verificarTrabajadoraPorTelefono);
             
             if (typeof window.loginTrabajadora === 'function') {
                 console.log('✅ loginTrabajadora está disponible');
             } else {
                 console.error('❌ loginTrabajadora NO está disponible');
             }
-        }, 1000);
+        }, 1500);
     </script>
 </body>
 </html>
