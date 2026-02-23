@@ -1,4 +1,4 @@
-// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON RESERVAS MANUALES)
+// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON CALENDARIO VISUAL)
 
 // ============================================
 // FUNCIONES DE SUPABASE
@@ -75,6 +75,11 @@ function AdminApp() {
     const [serviciosList, setServiciosList] = React.useState([]);
     const [trabajadorasList, setTrabajadorasList] = React.useState([]);
     const [horariosDisponibles, setHorariosDisponibles] = React.useState([]);
+    
+    // Estados para el calendario
+    const [currentDate, setCurrentDate] = React.useState(new Date());
+    const [diasLaborales, setDiasLaborales] = React.useState([]);
+    const [fechasConHorarios, setFechasConHorarios] = React.useState({});
 
     // ============================================
     // DETECTAR ROL Y NIVEL DEL USUARIO AL INICIAR
@@ -87,7 +92,6 @@ function AdminApp() {
             setTrabajadora(trabajadoraAuth);
             setUserNivel(trabajadoraAuth.nivel || 1);
             
-            // Para trabajadoras, preseleccionar su ID
             setNuevaReservaData(prev => ({
                 ...prev,
                 trabajador_id: trabajadoraAuth.id
@@ -114,7 +118,166 @@ function AdminApp() {
         cargarDatosModal();
     }, []);
 
-    // Cargar horarios disponibles cuando se selecciona trabajadora y fecha
+    // Cargar días laborales cuando se selecciona trabajadora
+    React.useEffect(() => {
+        const cargarDiasLaborales = async () => {
+            if (nuevaReservaData.trabajador_id) {
+                try {
+                    const horarios = await window.salonConfig.getHorariosTrabajadora(nuevaReservaData.trabajador_id);
+                    setDiasLaborales(horarios.dias || []);
+                    
+                    // Cargar disponibilidad para el mes actual
+                    await cargarDisponibilidadMes(currentDate, nuevaReservaData.trabajador_id);
+                } catch (error) {
+                    console.error('Error cargando días laborales:', error);
+                    setDiasLaborales([]);
+                }
+            }
+        };
+        cargarDiasLaborales();
+    }, [nuevaReservaData.trabajador_id]);
+
+    // Función para cargar disponibilidad de un mes completo
+    const cargarDisponibilidadMes = async (fecha, trabajadorId) => {
+        if (!trabajadorId) return;
+        
+        try {
+            const year = fecha.getFullYear();
+            const month = fecha.getMonth();
+            
+            // Obtener horarios de la trabajadora
+            const horarios = await window.salonConfig.getHorariosTrabajadora(trabajadorId);
+            const horasTrabajo = horarios.horas || [];
+            
+            if (horasTrabajo.length === 0) {
+                setFechasConHorarios({});
+                return;
+            }
+            
+            // Obtener todas las reservas del mes
+            const primerDia = new Date(year, month, 1);
+            const ultimoDia = new Date(year, month + 1, 0);
+            
+            const fechaInicio = primerDia.toISOString().split('T')[0];
+            const fechaFin = ultimoDia.toISOString().split('T')[0];
+            
+            const response = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/${window.TABLE_NAME || 'benettsalon'}?fecha=gte.${fechaInicio}&fecha=lte.${fechaFin}&trabajador_id=eq.${trabajadorId}&estado=neq.Cancelado&select=fecha,hora_inicio,hora_fin`,
+                {
+                    headers: {
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
+                    }
+                }
+            );
+            
+            const reservas = await response.json();
+            
+            // Agrupar reservas por fecha
+            const reservasPorFecha = {};
+            reservas.forEach(r => {
+                if (!reservasPorFecha[r.fecha]) {
+                    reservasPorFecha[r.fecha] = [];
+                }
+                reservasPorFecha[r.fecha].push(r);
+            });
+            
+            // Determinar qué fechas tienen disponibilidad
+            const disponibilidad = {};
+            const diasEnMes = ultimoDia.getDate();
+            
+            for (let d = 1; d <= diasEnMes; d++) {
+                const fechaStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+                const reservasDia = reservasPorFecha[fechaStr] || [];
+                
+                // Verificar si hay algún horario disponible
+                const tieneDisponibilidad = horasTrabajo.some(hora => {
+                    const slotStart = hora * 60;
+                    const slotEnd = slotStart + 60; // Duración por defecto
+                    
+                    const tieneConflicto = reservasDia.some(reserva => {
+                        const reservaStart = timeToMinutes(reserva.hora_inicio);
+                        const reservaEnd = timeToMinutes(reserva.hora_fin);
+                        return (slotStart < reservaEnd) && (slotEnd > reservaStart);
+                    });
+                    
+                    return !tieneConflicto;
+                });
+                
+                disponibilidad[fechaStr] = tieneDisponibilidad;
+            }
+            
+            setFechasConHorarios(disponibilidad);
+        } catch (error) {
+            console.error('Error cargando disponibilidad:', error);
+        }
+    };
+
+    // Función para cambiar de mes en el calendario
+    const cambiarMes = (direccion) => {
+        const nuevaFecha = new Date(currentDate);
+        nuevaFecha.setMonth(currentDate.getMonth() + direccion);
+        setCurrentDate(nuevaFecha);
+        
+        if (nuevaReservaData.trabajador_id) {
+            cargarDisponibilidadMes(nuevaFecha, nuevaReservaData.trabajador_id);
+        }
+    };
+
+    // Función para obtener los días del mes
+    const getDaysInMonth = () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        const days = [];
+        
+        for (let i = 0; i < firstDay.getDay(); i++) {
+            days.push(null);
+        }
+        
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            days.push(new Date(year, month, i));
+        }
+        
+        return days;
+    };
+
+    // Función para formatear fecha
+    const formatDate = (date) => {
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const d = date.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    // Función para verificar si una fecha está disponible
+    const isDateAvailable = (date) => {
+        if (!date || !nuevaReservaData.trabajador_id) return false;
+        
+        const fechaStr = formatDate(date);
+        const diaSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][date.getDay()];
+        
+        // Verificar si el día es laboral
+        if (diasLaborales.length > 0 && !diasLaborales.includes(diaSemana)) {
+            return false;
+        }
+        
+        // Verificar si tiene horarios disponibles
+        return fechasConHorarios[fechaStr] || false;
+    };
+
+    // Función para seleccionar fecha
+    const handleDateSelect = (date) => {
+        if (isDateAvailable(date)) {
+            const fechaStr = formatDate(date);
+            setNuevaReservaData({...nuevaReservaData, fecha: fechaStr, hora_inicio: ''});
+        }
+    };
+
+    // Cargar horarios cuando se selecciona fecha
     React.useEffect(() => {
         const cargarHorarios = async () => {
             if (nuevaReservaData.trabajador_id && nuevaReservaData.fecha) {
@@ -432,10 +595,15 @@ function AdminApp() {
             fecha: '',
             hora_inicio: ''
         });
+        setCurrentDate(new Date());
+        setDiasLaborales([]);
+        setFechasConHorarios({});
         setShowNuevaReservaModal(true);
     };
 
     const tabsDisponibles = getTabsDisponibles();
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const days = getDaysInMonth();
 
     return (
         <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
@@ -465,7 +633,6 @@ function AdminApp() {
                         )}
                     </div>
                     <div className="flex gap-2">
-                        {/* BOTÓN NUEVA RESERVA MANUAL */}
                         <button
                             onClick={abrirModalNuevaReserva}
                             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition transform hover:scale-105 shadow-md"
@@ -494,7 +661,7 @@ function AdminApp() {
                 {/* MODAL NUEVA RESERVA */}
                 {showNuevaReservaModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-xl font-bold">📅 Nueva Reserva Manual</h3>
                                 <button 
@@ -562,12 +729,18 @@ function AdminApp() {
                                     </select>
                                 </div>
 
-                                {/* Selección de trabajadora (solo visible para admin o nivel 3) */}
-                                {(userRole === 'admin' || userNivel >= 3) && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Trabajadora *
-                                        </label>
+                                {/* Selección de trabajadora */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Trabajadora *
+                                    </label>
+                                    {userRole === 'trabajadora' && userNivel <= 2 ? (
+                                        <div className="bg-blue-50 p-3 rounded-lg">
+                                            <p className="text-sm text-blue-700">
+                                                Reserva asignada a vos: <strong>{trabajadora?.nombre}</strong>
+                                            </p>
+                                        </div>
+                                    ) : (
                                         <select
                                             value={nuevaReservaData.trabajador_id}
                                             onChange={(e) => setNuevaReservaData({...nuevaReservaData, trabajador_id: e.target.value})}
@@ -580,40 +753,86 @@ function AdminApp() {
                                                 </option>
                                             ))}
                                         </select>
-                                    </div>
-                                )}
-
-                                {/* Para trabajadoras nivel 1 y 2, mostrar mensaje de que la reserva será para ellas */}
-                                {userRole === 'trabajadora' && userNivel <= 2 && (
-                                    <div className="bg-blue-50 p-3 rounded-lg">
-                                        <p className="text-sm text-blue-700">
-                                            La reserva será asignada a vos: <strong>{trabajadora?.nombre}</strong>
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Fecha */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Fecha *
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={nuevaReservaData.fecha}
-                                        onChange={(e) => setNuevaReservaData({...nuevaReservaData, fecha: e.target.value})}
-                                        min={new Date().toISOString().split('T')[0]}
-                                        className="w-full border rounded-lg px-3 py-2"
-                                    />
+                                    )}
                                 </div>
 
-                                {/* Horarios disponibles */}
-                                {nuevaReservaData.fecha && nuevaReservaData.trabajador_id && (
+                                {/* Calendario de fechas */}
+                                {nuevaReservaData.trabajador_id && (
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Fecha *
+                                        </label>
+                                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                            <div className="flex items-center justify-between p-3 bg-gray-50 border-b border-gray-100">
+                                                <button 
+                                                    onClick={() => cambiarMes(-1)} 
+                                                    className="p-2 hover:bg-white rounded-full transition-colors"
+                                                >
+                                                    ◀
+                                                </button>
+                                                <span className="font-bold text-gray-800">
+                                                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                                                </span>
+                                                <button 
+                                                    onClick={() => cambiarMes(1)} 
+                                                    className="p-2 hover:bg-white rounded-full transition-colors"
+                                                >
+                                                    ▶
+                                                </button>
+                                            </div>
+
+                                            <div className="p-3">
+                                                <div className="grid grid-cols-7 mb-2 text-center text-xs font-medium text-gray-400">
+                                                    {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
+                                                        <div key={i}>{d}</div>
+                                                    ))}
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-7 gap-1">
+                                                    {days.map((date, idx) => {
+                                                        if (!date) {
+                                                            return <div key={idx} className="h-10" />;
+                                                        }
+
+                                                        const fechaStr = formatDate(date);
+                                                        const available = isDateAvailable(date);
+                                                        const selected = nuevaReservaData.fecha === fechaStr;
+                                                        
+                                                        let className = "h-10 w-full flex items-center justify-center rounded-lg text-sm font-medium transition-all relative";
+                                                        
+                                                        if (selected) {
+                                                            className += " bg-pink-600 text-white shadow-md ring-2 ring-pink-300";
+                                                        } else if (!available) {
+                                                            className += " text-gray-300 cursor-not-allowed bg-gray-50";
+                                                        } else {
+                                                            className += " text-gray-700 hover:bg-pink-50 hover:text-pink-600 hover:scale-105 cursor-pointer";
+                                                        }
+                                                        
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => handleDateSelect(date)}
+                                                                disabled={!available}
+                                                                className={className}
+                                                            >
+                                                                {date.getDate()}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Horarios disponibles */}
+                                {nuevaReservaData.fecha && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Hora de inicio *
                                         </label>
                                         {horariosDisponibles.length > 0 ? (
-                                            <div className="grid grid-cols-2 gap-2">
+                                            <div className="grid grid-cols-3 gap-2">
                                                 {horariosDisponibles.map(hora => (
                                                     <button
                                                         key={hora}
