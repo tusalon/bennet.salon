@@ -1,4 +1,4 @@
-// components/ClientAuthScreen.js - VERSIÓN FINAL CORREGIDA
+// components/ClientAuthScreen.js - VERSIÓN FINAL CON DETECCIÓN DE DUEÑO
 
 function ClientAuthScreen({ onAccessGranted }) {
     const [nombre, setNombre] = React.useState('');
@@ -11,6 +11,8 @@ function ClientAuthScreen({ onAccessGranted }) {
     const [estadoRechazado, setEstadoRechazado] = React.useState(false);
     const [esTrabajadora, setEsTrabajadora] = React.useState(false);
     const [trabajadoraInfo, setTrabajadoraInfo] = React.useState(null);
+    // 🔥 NUEVO: Estado para el dueño
+    const [esDuenno, setEsDuenno] = React.useState(false);
 
     const verificarNumero = async (numero) => {
         if (numero.length < 8) {
@@ -19,6 +21,7 @@ function ClientAuthScreen({ onAccessGranted }) {
             setEstadoRechazado(false);
             setEsTrabajadora(false);
             setTrabajadoraInfo(null);
+            setEsDuenno(false);
             setError('');
             return;
         }
@@ -30,13 +33,20 @@ function ClientAuthScreen({ onAccessGranted }) {
         
         try {
             console.log('🔍 Verificando número:', numeroCompleto);
-            console.log('🔧 Funciones disponibles:', {
-                verificarTrabajadora: typeof window.verificarTrabajadoraPorTelefono
-            });
             
-            // ============================================
-            // 🔥 PASO 1: VERIFICAR SI ES TRABAJADORA (PRIMERO)
-            // ============================================
+            // 🔥 PASO 1: Verificar si es el DUEÑO (número hardcodeado)
+            if (numeroCompleto === '5354066204') {
+                console.log('👑 ES EL DUEÑO');
+                setEsDuenno(true);
+                setEsTrabajadora(false);
+                setTrabajadoraInfo(null);
+                setClienteAutorizado(null);
+                setError('👑 Acceso como dueño detectado');
+                setVerificando(false);
+                return; // ⚠️ SALIR - NO SEGUIR VERIFICANDO
+            }
+            
+            // 🔥 PASO 2: Verificar si es trabajadora
             if (window.verificarTrabajadoraPorTelefono) {
                 console.log('👩‍🎨 Verificando si es trabajadora...');
                 const trabajadora = await window.verificarTrabajadoraPorTelefono(numeroLimpio);
@@ -46,20 +56,17 @@ function ClientAuthScreen({ onAccessGranted }) {
                     console.log('✅ ES TRABAJADORA:', trabajadora.nombre);
                     setEsTrabajadora(true);
                     setTrabajadoraInfo(trabajadora);
+                    setEsDuenno(false);
                     setClienteAutorizado(null);
-                    setYaTieneSolicitud(false);
                     setError('👩‍🎨 Acceso como trabajadora detectado');
                     setVerificando(false);
-                    return; // ⚠️ SALIR - NO SEGUIR CON CLIENTE
+                    return;
                 }
-            } else {
-                console.error('❌ window.verificarTrabajadoraPorTelefono NO está disponible');
             }
             
-            // ============================================
-            // PASO 2: SOLO SI NO ES TRABAJADORA, VERIFICAR COMO CLIENTE
-            // ============================================
-            console.log('👤 No es trabajadora, verificando como cliente...');
+            // PASO 3: Solo si NO es dueño ni trabajadora, verificar como cliente
+            console.log('👤 No es dueño ni trabajadora, verificando como cliente...');
+            setEsDuenno(false);
             setEsTrabajadora(false);
             setTrabajadoraInfo(null);
             
@@ -118,9 +125,9 @@ function ClientAuthScreen({ onAccessGranted }) {
             return;
         }
         
-        // Si es trabajadora, no debería llegar aquí
-        if (esTrabajadora) {
-            setError('Las trabajadoras deben usar el botón de acceso especial.');
+        // Si es dueño o trabajadora, no debería llegar aquí
+        if (esDuenno || esTrabajadora) {
+            setError('El dueño y las trabajadoras deben usar el botón de acceso especial.');
             return;
         }
         
@@ -154,18 +161,30 @@ function ClientAuthScreen({ onAccessGranted }) {
         }
     };
 
+    // 🔥 Acceso para dueño
+    const handleAccesoDuenno = () => {
+        console.log('👑 Accediendo como dueño');
+        
+        // Guardar sesión de admin
+        localStorage.setItem('adminAuth', 'true');
+        localStorage.setItem('adminUser', 'Dueño');
+        localStorage.setItem('adminLoginTime', Date.now());
+        
+        // Redirigir al panel de admin
+        window.location.href = 'admin.html';
+    };
+
+    // Acceso para trabajadora
     const handleAccesoTrabajadora = () => {
         if (trabajadoraInfo) {
             console.log('👩‍🎨 Accediendo como trabajadora:', trabajadoraInfo);
             
-            // Guardar sesión de trabajadora
             localStorage.setItem('trabajadoraAuth', JSON.stringify({
                 id: trabajadoraInfo.id,
                 nombre: trabajadoraInfo.nombre,
                 telefono: trabajadoraInfo.telefono
             }));
             
-            // Redirigir al panel de admin
             window.location.href = 'admin.html';
         }
     };
@@ -225,7 +244,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                         <div className="icon-shield-check text-3xl text-pink-600"></div>
                     </div>
                     <h1 className="text-3xl font-bold text-gray-800">Bennet Salon</h1>
-                    <p className="text-gray-500 mt-2">Acceso para clientes y trabajadoras</p>
+                    <p className="text-gray-500 mt-2">Acceso para clientes y personal</p>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-xl border border-pink-100">
@@ -244,18 +263,18 @@ function ClientAuthScreen({ onAccessGranted }) {
                                 value={nombre}
                                 onChange={(e) => setNombre(e.target.value)}
                                 className={`w-full px-4 py-3 rounded-lg border ${
-                                    esTrabajadora 
+                                    esDuenno || esTrabajadora 
                                         ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed' 
                                         : 'border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500'
                                 } outline-none transition`}
                                 placeholder="Ej: María García"
-                                disabled={esTrabajadora}
-                                required={!esTrabajadora}
+                                disabled={esDuenno || esTrabajadora}
+                                required={!esDuenno && !esTrabajadora}
                             />
-                            {esTrabajadora && (
-                                <p className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+                            {(esDuenno || esTrabajadora) && (
+                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                                     <span className="icon-info"></span>
-                                    Las trabajadoras no necesitan nombre
+                                    El personal no necesita nombre
                                 </p>
                             )}
                         </div>
@@ -291,19 +310,38 @@ function ClientAuthScreen({ onAccessGranted }) {
                             </div>
                         )}
 
+                        {/* 🔥 BANNER PARA DUEÑO */}
+                        {esDuenno && !verificando && (
+                            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg p-4 animate-fade-in shadow-md">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-12 h-12 bg-amber-200 rounded-full flex items-center justify-center text-amber-600 text-2xl">
+                                        👑
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-amber-800 font-bold text-xl">
+                                            ¡Bienvenido Dueño!
+                                        </p>
+                                        <p className="text-amber-600 text-sm mt-1">
+                                            Tenés acceso completo al sistema de administración.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* BANNER PARA TRABAJADORA */}
                         {esTrabajadora && trabajadoraInfo && !verificando && (
-                            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 animate-fade-in">
+                            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-lg p-4 animate-fade-in shadow-md">
                                 <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center text-purple-600 text-xl">
+                                    <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center text-purple-600 text-2xl">
                                         👩‍🎨
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-purple-800 font-bold text-lg">
+                                        <p className="text-purple-800 font-bold text-xl">
                                             ¡Hola {trabajadoraInfo.nombre}!
                                         </p>
                                         <p className="text-purple-600 text-sm mt-1">
-                                            Detectamos que sos trabajadora de Bennet Salon.
+                                            Bienvenida a tu panel de trabajo.
                                         </p>
                                     </div>
                                 </div>
@@ -311,13 +349,18 @@ function ClientAuthScreen({ onAccessGranted }) {
                         )}
 
                         {/* BANNER PARA CLIENTE AUTORIZADO */}
-                        {clienteAutorizado && !verificando && !esTrabajadora && (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-fade-in">
+                        {clienteAutorizado && !verificando && !esDuenno && !esTrabajadora && (
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-4 animate-fade-in shadow-md">
                                 <div className="flex items-start gap-3">
-                                    <div className="icon-check-circle text-green-600 text-xl"></div>
+                                    <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center text-green-600 text-2xl">
+                                        👤
+                                    </div>
                                     <div className="flex-1">
-                                        <p className="text-green-800 font-medium">
-                                            ¡Hola <strong>{clienteAutorizado.nombre}</strong>! Ya tenés acceso.
+                                        <p className="text-green-800 font-bold text-xl">
+                                            ¡Hola {clienteAutorizado.nombre}!
+                                        </p>
+                                        <p className="text-green-600 text-sm mt-1">
+                                            Ya tenés acceso para reservar turnos.
                                         </p>
                                     </div>
                                 </div>
@@ -325,7 +368,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                         )}
 
                         {/* ERRORES SOLO PARA CLIENTES */}
-                        {error && !esTrabajadora && (
+                        {error && !esDuenno && !esTrabajadora && (
                             <div className={`text-sm p-3 rounded-lg flex items-start gap-2 ${
                                 estadoRechazado 
                                     ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' 
@@ -336,8 +379,20 @@ function ClientAuthScreen({ onAccessGranted }) {
                             </div>
                         )}
 
-                        {/* BOTONES DE ACCIÓN */}
+                        {/* 🔥 BOTONES DE ACCIÓN */}
                         <div className="space-y-3 pt-2">
+                            {/* BOTÓN PARA DUEÑO */}
+                            {esDuenno && !verificando && (
+                                <button
+                                    type="button"
+                                    onClick={handleAccesoDuenno}
+                                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-4 rounded-xl font-bold hover:from-amber-600 hover:to-yellow-600 transition transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg text-lg"
+                                >
+                                    <span className="text-2xl">👑</span>
+                                    Ingresar como Dueño
+                                </button>
+                            )}
+
                             {/* BOTÓN PARA TRABAJADORA */}
                             {esTrabajadora && trabajadoraInfo && !verificando && (
                                 <button
@@ -351,7 +406,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                             )}
 
                             {/* BOTÓN PARA CLIENTE AUTORIZADO */}
-                            {clienteAutorizado && !verificando && !esTrabajadora && (
+                            {clienteAutorizado && !verificando && !esDuenno && !esTrabajadora && (
                                 <button
                                     type="button"
                                     onClick={handleAccesoDirecto}
@@ -363,7 +418,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                             )}
 
                             {/* BOTÓN PARA SOLICITAR ACCESO */}
-                            {!clienteAutorizado && !esTrabajadora && !verificando && (
+                            {!clienteAutorizado && !esDuenno && !esTrabajadora && !verificando && (
                                 <button
                                     type="submit"
                                     disabled={verificando || (yaTieneSolicitud && !estadoRechazado)}
@@ -375,6 +430,21 @@ function ClientAuthScreen({ onAccessGranted }) {
                             )}
                         </div>
                     </form>
+
+                    {/* Leyenda de colores */}
+                    <div className="mt-6 text-xs text-center text-gray-400 border-t pt-4">
+                        <div className="grid grid-cols-3 gap-1 text-center">
+                            <div className="bg-amber-50 p-1 rounded">
+                                <span className="font-bold text-amber-700">👑 Dueño</span>
+                            </div>
+                            <div className="bg-purple-50 p-1 rounded">
+                                <span className="font-bold text-purple-700">👩‍🎨 Trabajadora</span>
+                            </div>
+                            <div className="bg-green-50 p-1 rounded">
+                                <span className="font-bold text-green-700">👤 Cliente</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
