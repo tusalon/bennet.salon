@@ -87,13 +87,25 @@
     <div id="root"></div>
 
     <!-- ============================================ -->
-    <!-- SCRIPTS CORREGIDOS - VERSIÓN 100% FUNCIONAL -->
+    <!-- SCRIPTS - ORDEN CORRECTO (VERSIÓN FINAL)    -->
     <!-- ============================================ -->
-    
-    <!-- PRIMERO: Configuración central de Supabase (sin Babel) -->
+
+    <!-- PRIMERO: Configuración central de Supabase y Storage -->
     <script type="text/javascript" src="utils/supabase-config.js"></script>
-    
-    <!-- SEGUNDO: Utilidades sin JSX (type="text/javascript") -->
+    <script type="text/javascript" src="utils/storage.js"></script>
+
+    <!-- Script de verificación inmediata -->
+    <script type="text/javascript">
+        console.log('🔍 VERIFICACIÓN INICIAL:');
+        console.log('  SUPABASE_URL:', window.SUPABASE_URL);
+        console.log('  SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? '✓ Definida' : '✗ Undefined');
+        
+        if (!window.SUPABASE_URL) {
+            console.error('❌ ERROR CRÍTICO: SUPABASE_URL no está definida');
+        }
+    </script>
+
+    <!-- SEGUNDO: Utilidades sin JSX -->
     <script type="text/javascript" src="utils/api.js"></script>
     <script type="text/javascript" src="utils/timeLogic.js"></script>
     <script type="text/javascript" src="utils/auth-clients.js"></script>
@@ -102,18 +114,19 @@
     <script type="text/javascript" src="utils/servicios.js"></script>
     <script type="text/javascript" src="utils/trabajadoras.js"></script>
 
-    <!-- Script de verificación (opcional - ayuda a debuggear) -->
+    <!-- Script de verificación de carga -->
     <script type="text/javascript">
         console.log('🔍 VERIFICACIÓN DE CARGA:');
-        console.log('✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
-        console.log('✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
-        console.log('✅ auth-clientes:', typeof window.verificarAccesoCliente);
-        console.log('✅ salonConfig:', typeof window.salonConfig);
-        console.log('✅ salonServicios:', typeof window.salonServicios);
-        console.log('✅ salonTrabajadoras:', typeof window.salonTrabajadoras);
+        console.log(' ✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
+        console.log(' ✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
+        console.log(' ✅ auth-clientes:', typeof window.verificarAccesoCliente);
+        console.log(' ✅ salonConfig:', typeof window.salonConfig);
+        console.log(' ✅ salonServicios:', typeof window.salonServicios);
+        console.log(' ✅ salonTrabajadoras:', typeof window.salonTrabajadoras);
+        console.log(' ✅ storage:', typeof window.subirImagenServicio);
     </script>
 
-    <!-- TERCERO: Componentes con JSX (type="text/babel") -->
+    <!-- TERCERO: Componentes con JSX -->
     <script type="text/babel" src="components/Header.js"></script>
     <script type="text/babel" src="components/ServiceSelection.js"></script>
     <script type="text/babel" src="components/WorkerSelector.js"></script>

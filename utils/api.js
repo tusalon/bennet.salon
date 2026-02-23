@@ -1,55 +1,22 @@
-// utils/api.js - VERSIÓN SIN CACHÉ (SIEMPRE CONSULTA A SUPABASE)
+// utils/api.js - VERSIÓN CORREGIDA (usa window.SUPABASE_URL)
 
-const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
+console.log('📡 api.js cargado');
 
 const TABLE_NAME = 'benettsalon';
 
 /**
- * Fetch all bookings for a specific date - SIEMPRE A SUPABASE
+ * Fetch all bookings for a specific date
  */
 async function getBookingsByDate(dateStr) {
     try {
         console.log('🌐 Solicitando turnos a Supabase para', dateStr);
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?fecha=eq.${dateStr}&estado=neq.Cancelado&select=*`,
+            `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}?fecha=eq.${dateStr}&estado=neq.Cancelado&select=*`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Cache-Control': 'no-cache' // 🔥 FORZAR NO CACHÉ
-                },
-                cache: 'no-store' // 🔥 DESACTIVAR CACHÉ DEL NAVEGADOR
-            }
-        );
-        
-        if (!response.ok) throw new Error('Error fetching bookings');
-        
-        const data = await response.json();
-        console.log('✅ Datos recibidos de Supabase:', data);
-        return data;
-    } catch (error) {
-        console.error('Error fetching bookings:', error);
-        return [];
-    }
-}
-
-/**
- * 🔥 NUEVA: Fetch bookings for a specific date AND worker - SIEMPRE A SUPABASE
- */
-async function getBookingsByDateAndWorker(dateStr, workerId) {
-    try {
-        console.log(`🌐 Solicitando turnos a Supabase para ${dateStr} del trabajador ${workerId}`);
-        const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?fecha=eq.${dateStr}&trabajador_id=eq.${workerId}&estado=neq.Cancelado&select=*`,
-            {
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Accept-Encoding': 'gzip, deflate',
                     'Cache-Control': 'no-cache'
                 },
                 cache: 'no-store'
@@ -59,7 +26,35 @@ async function getBookingsByDateAndWorker(dateStr, workerId) {
         if (!response.ok) throw new Error('Error fetching bookings');
         
         const data = await response.json();
-        console.log(`✅ Datos recibidos de Supabase para trabajador ${workerId}:`, data);
+        return data;
+    } catch (error) {
+        console.error('Error fetching bookings:', error);
+        return [];
+    }
+}
+
+/**
+ * Fetch bookings for a specific date AND worker
+ */
+async function getBookingsByDateAndWorker(dateStr, workerId) {
+    try {
+        console.log(`🌐 Solicitando turnos para ${dateStr} del trabajador ${workerId}`);
+        const response = await fetch(
+            `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}?fecha=eq.${dateStr}&trabajador_id=eq.${workerId}&estado=neq.Cancelado&select=*`,
+            {
+                headers: {
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache'
+                },
+                cache: 'no-store'
+            }
+        );
+        
+        if (!response.ok) throw new Error('Error fetching bookings');
+        
+        const data = await response.json();
         return data;
     } catch (error) {
         console.error('Error fetching bookings:', error);
@@ -89,12 +84,12 @@ async function createBooking(bookingData) {
         console.log('📤 Enviando a Supabase:', dataForSupabase);
 
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/${TABLE_NAME}`,
+            `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}`,
             {
                 method: 'POST',
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
                     'Prefer': 'return=representation',
                     'Cache-Control': 'no-cache'
@@ -127,13 +122,12 @@ async function getAllBookings() {
     try {
         console.log('🌐 Solicitando todas las reservas a Supabase');
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=fecha.desc,hora_inicio.asc`,
+            `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=fecha.desc,hora_inicio.asc`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
-                    'Accept-Encoding': 'gzip, deflate',
                     'Cache-Control': 'no-cache'
                 },
                 cache: 'no-store'
@@ -143,7 +137,6 @@ async function getAllBookings() {
         if (!response.ok) throw new Error('Error fetching all bookings');
         
         const data = await response.json();
-        console.log('✅ Todas las reservas:', data);
         return data;
     } catch (error) {
         console.error('Error fetching all bookings:', error);
@@ -158,12 +151,12 @@ async function updateBookingStatus(id, newStatus) {
     try {
         console.log(`📝 Actualizando reserva ${id} a estado ${newStatus}`);
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`,
+            `${window.SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`,
             {
                 method: 'PATCH',
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
                     'Cache-Control': 'no-cache'
                 },
@@ -181,3 +174,12 @@ async function updateBookingStatus(id, newStatus) {
         throw error;
     }
 }
+
+// Hacer funciones globales
+window.getBookingsByDate = getBookingsByDate;
+window.getBookingsByDateAndWorker = getBookingsByDateAndWorker;
+window.createBooking = createBooking;
+window.getAllBookings = getAllBookings;
+window.updateBookingStatus = updateBookingStatus;
+
+console.log('✅ api.js funciones disponibles');

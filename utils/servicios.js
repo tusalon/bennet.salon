@@ -1,259 +1,284 @@
-// utils/servicios.js - Gestión de servicios CON SUPABASE
+// utils/config.js - Configuración del salón CON SUPABASE (CORREGIDO)
 
-const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
+console.log('⚙️ config.js cargado (modo Supabase)');
 
-console.log('💅 servicios.js cargado (modo Supabase)');
+let configuracionGlobal = {
+    duracionTurnos: 60,
+    intervaloEntreTurnos: 0,
+    modo24h: false
+};
 
-// Cache local para no consultar siempre
-let serviciosCache = [];
+let horariosTrabajadoras = {};
 let ultimaActualizacion = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const CACHE_DURATION = 5 * 60 * 1000;
 
 // ============================================
 // FUNCIONES CON SUPABASE
 // ============================================
 
-// Cargar servicios desde Supabase
-async function cargarServiciosDesdeDB() {
+async function cargarConfiguracionGlobal() {
     try {
-        console.log('🌐 Cargando servicios desde Supabase...');
+        console.log('🌐 Cargando configuración global desde Supabase...');
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/servicios?select=*&order=id.asc`,
+            `${window.SUPABASE_URL}/rest/v1/configuracion?select=*`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
         );
         
         if (!response.ok) {
-            console.error('Error response:', await response.text());
+            if (response.status === 404) {
+                return null;
+            }
             return null;
         }
         
         const data = await response.json();
-        console.log('✅ Servicios cargados desde Supabase:', data);
-        serviciosCache = data;
-        ultimaActualizacion = Date.now();
-        return data;
+        if (data && data.length > 0) {
+            configuracionGlobal = data[0];
+        }
+        return configuracionGlobal;
     } catch (error) {
-        console.error('Error cargando servicios:', error);
+        console.error('Error cargando configuración:', error);
         return null;
     }
 }
 
-// Función para asegurar que la tabla existe
-async function asegurarTablaServicios() {
+async function cargarHorariosTrabajadoras() {
     try {
-        // Intentar crear la tabla si no existe
+        console.log('🌐 Cargando horarios de trabajadoras desde Supabase...');
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/servicios?limit=1`,
+            `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?select=*`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
         );
         
-        if (response.status === 404) {
-            console.log('📝 Tabla servicios no existe, creando...');
-            // La tabla no existe - necesitas crearla manualmente en Supabase
-            // Por ahora, usamos datos por defecto
-            return false;
+        if (!response.ok) {
+            if (response.status === 404) {
+                return {};
+            }
+            return {};
         }
-        return true;
+        
+        const data = await response.json();
+        
+        const horarios = {};
+        data.forEach(item => {
+            if (!horarios[item.trabajadora_id]) {
+                horarios[item.trabajadora_id] = {
+                    horas: item.horas || [],
+                    dias: item.dias || []
+                };
+            }
+        });
+        
+        horariosTrabajadoras = horarios;
+        return horarios;
     } catch (error) {
-        console.error('Error verificando tabla:', error);
-        return false;
+        console.error('Error cargando horarios:', error);
+        return {};
     }
 }
 
-// Obtener todos los servicios
-window.salonServicios = {
-    getAll: async function(activos = true) {
-        // Si el caché es reciente, usarlo
-        if (Date.now() - ultimaActualizacion < CACHE_DURATION && serviciosCache.length > 0) {
-            console.log('📋 Usando caché de servicios');
-            if (activos) {
-                return serviciosCache.filter(s => s.activo === true);
-            }
-            return [...serviciosCache];
+// Funciones globales
+window.salonConfig = {
+    get: async function() {
+        if (Date.now() - ultimaActualizacion < CACHE_DURATION) {
+            return { ...configuracionGlobal };
         }
         
-        // Si no, cargar de Supabase
-        const datos = await cargarServiciosDesdeDB();
-        if (datos) {
-            if (activos) {
-                return datos.filter(s => s.activo === true);
-            }
-            return datos;
-        }
-        
-        // Fallback a datos por defecto si no hay conexión
-        const serviciosDefault = [
-            { id: 1, nombre: "Esmaltado + Manicura Macro con Cera", duracion: 75, precioMin: 3.5, precioMax: 5, descripcion: "Incluye esmaltado común o semipermanente", activo: true },
-            { id: 2, nombre: "Sistema Press On + Manicura Macro con Cera", duracion: 120, precioMin: 6, precioMax: 7, descripcion: "Precio según complejidad del diseño", activo: true },
-            { id: 3, nombre: "Builder Gel + Manicura Macro con Cera", duracion: 150, precioMin: 6.5, precioMax: 7.5, descripcion: "Para fortalecer y alargar uñas naturales", activo: true },
-            { id: 4, nombre: "Pedicura Spa + Esmaltado", duracion: 120, precioMin: 6.5, precioMax: 10, descripcion: "Incluye exfoliación, hidratación, masaje", activo: true },
-            { id: 5, nombre: "Gel Semipermanente + Manicura Macro con Cera", duracion: 90, precioMin: 4.5, precioMax: 6, descripcion: "Esmaltado semipermanente de larga duración", activo: true },
-            { id: 6, nombre: "Gel Semi Transparente + Manicura Macro con Cera", duracion: 90, precioMin: 5, precioMax: 6.5, descripcion: "Acabado natural y brillante", activo: true }
-        ];
-        serviciosCache = serviciosDefault;
-        return activos ? serviciosDefault : serviciosDefault;
+        await cargarConfiguracionGlobal();
+        ultimaActualizacion = Date.now();
+        return { ...configuracionGlobal };
     },
     
-    getById: async function(id) {
+    guardar: async function(nuevaConfig) {
         try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/servicios?id=eq.${id}&select=*`,
+            console.log('💾 Guardando configuración global:', nuevaConfig);
+            
+            const checkResponse = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/configuracion?select=id`,
                 {
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }
             );
-            if (!response.ok) return null;
+            
+            const existe = await checkResponse.json();
+            
+            let response;
+            if (existe && existe.length > 0) {
+                response = await fetch(
+                    `${window.SUPABASE_URL}/rest/v1/configuracion?id=eq.${existe[0].id}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(nuevaConfig)
+                    }
+                );
+            } else {
+                response = await fetch(
+                    `${window.SUPABASE_URL}/rest/v1/configuracion`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(nuevaConfig)
+                    }
+                );
+            }
+            
+            if (!response.ok) {
+                const error = await response.text();
+                console.error('Error guardando configuración:', error);
+                return null;
+            }
+            
             const data = await response.json();
-            return data[0] || null;
+            configuracionGlobal = Array.isArray(data) ? data[0] : data;
+            ultimaActualizacion = Date.now();
+            
+            return configuracionGlobal;
         } catch (error) {
-            console.error('Error obteniendo servicio:', error);
+            console.error('Error en guardar:', error);
             return null;
         }
     },
     
-    crear: async function(servicio) {
+    getHorariosTrabajadora: async function(trabajadoraId) {
         try {
-            console.log('➕ Creando servicio:', servicio);
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/servicios`,
+                `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?trabajadora_id=eq.${trabajadoraId}&select=*`,
                 {
-                    method: 'POST',
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify({
-                        nombre: servicio.nombre,
-                        duracion: servicio.duracion,
-                        precioMin: servicio.precioMin,
-                        precioMax: servicio.precioMax,
-                        descripcion: servicio.descripcion || '',
-                        activo: true
-                    })
-                }
-            );
-            
-            if (!response.ok) {
-                const error = await response.text();
-                console.error('Error al crear servicio:', error);
-                return null;
-            }
-            
-            const nuevo = await response.json();
-            console.log('✅ Servicio creado:', nuevo);
-            
-            // Actualizar caché
-            serviciosCache = await cargarServiciosDesdeDB() || serviciosCache;
-            
-            if (window.dispatchEvent) {
-                window.dispatchEvent(new Event('serviciosActualizados'));
-            }
-            
-            return nuevo[0];
-        } catch (error) {
-            console.error('Error en crear:', error);
-            return null;
-        }
-    },
-    
-    actualizar: async function(id, cambios) {
-        try {
-            console.log('✏️ Actualizando servicio', id, 'con:', cambios);
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/servicios?id=eq.${id}`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify(cambios)
-                }
-            );
-            
-            if (!response.ok) {
-                const error = await response.text();
-                console.error('Error al actualizar servicio:', error);
-                return null;
-            }
-            
-            const actualizado = await response.json();
-            console.log('✅ Servicio actualizado:', actualizado);
-            
-            // Actualizar caché
-            serviciosCache = await cargarServiciosDesdeDB() || serviciosCache;
-            
-            if (window.dispatchEvent) {
-                window.dispatchEvent(new Event('serviciosActualizados'));
-            }
-            
-            return actualizado[0];
-        } catch (error) {
-            console.error('Error en actualizar:', error);
-            return null;
-        }
-    },
-    
-    eliminar: async function(id) {
-        try {
-            console.log('🗑️ Eliminando servicio:', id);
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/servicios?id=eq.${id}`,
-                {
-                    method: 'DELETE',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }
             );
             
+            if (!response.ok) return { horas: [], dias: [] };
+            
+            const data = await response.json();
+            if (data && data.length > 0) {
+                return {
+                    horas: data[0].horas || [],
+                    dias: data[0].dias || []
+                };
+            }
+            return { horas: [], dias: [] };
+        } catch (error) {
+            console.error('Error obteniendo horarios:', error);
+            return { horas: [], dias: [] };
+        }
+    },
+    
+    guardarHorariosTrabajadora: async function(trabajadoraId, horarios) {
+        try {
+            console.log(`💾 Guardando horarios para trabajadora ${trabajadoraId}:`, horarios);
+            
+            const checkResponse = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?trabajadora_id=eq.${trabajadoraId}&select=id`,
+                {
+                    headers: {
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            const existe = await checkResponse.json();
+            
+            let response;
+            if (existe && existe.length > 0) {
+                response = await fetch(
+                    `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?id=eq.${existe[0].id}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify({
+                            horas: horarios.horas || [],
+                            dias: horarios.dias || []
+                        })
+                    }
+                );
+            } else {
+                response = await fetch(
+                    `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify({
+                            trabajadora_id: trabajadoraId,
+                            horas: horarios.horas || [],
+                            dias: horarios.dias || []
+                        })
+                    }
+                );
+            }
+            
             if (!response.ok) {
                 const error = await response.text();
-                console.error('Error al eliminar servicio:', error);
-                return false;
+                console.error('Error guardando horarios:', error);
+                return null;
             }
             
-            console.log('✅ Servicio eliminado');
+            const data = await response.json();
             
-            // Actualizar caché
-            serviciosCache = await cargarServiciosDesdeDB() || serviciosCache;
+            horariosTrabajadoras[trabajadoraId] = {
+                horas: horarios.horas || [],
+                dias: horarios.dias || []
+            };
             
             if (window.dispatchEvent) {
-                window.dispatchEvent(new Event('serviciosActualizados'));
+                window.dispatchEvent(new Event('horariosActualizados'));
             }
             
-            return true;
+            return Array.isArray(data) ? data[0] : data;
         } catch (error) {
-            console.error('Error en eliminar:', error);
-            return false;
+            console.error('Error en guardarHorariosTrabajadora:', error);
+            return null;
         }
     }
 };
 
-// Cargar servicios al inicio
+// Cargar datos al inicio
 setTimeout(async () => {
-    await window.salonServicios.getAll(false);
+    await window.salonConfig.get();
+    await cargarHorariosTrabajadoras();
 }, 1000);
+
+console.log('✅ salonConfig inicializado');

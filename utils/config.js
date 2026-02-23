@@ -1,7 +1,4 @@
-// utils/config.js - Configuración del salón CON SUPABASE
-
-const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
+// utils/config.js - Configuración del salón CON SUPABASE (CORREGIDO)
 
 console.log('⚙️ config.js cargado (modo Supabase)');
 
@@ -12,7 +9,6 @@ let configuracionGlobal = {
 };
 
 let horariosTrabajadoras = {};
-
 let ultimaActualizacion = 0;
 const CACHE_DURATION = 5 * 60 * 1000;
 
@@ -24,11 +20,11 @@ async function cargarConfiguracionGlobal() {
     try {
         console.log('🌐 Cargando configuración global desde Supabase...');
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/configuracion?select=*`,
+            `${window.SUPABASE_URL}/rest/v1/configuracion?select=*`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
@@ -36,7 +32,6 @@ async function cargarConfiguracionGlobal() {
         
         if (!response.ok) {
             if (response.status === 404) {
-                // La tabla no existe, crear datos por defecto
                 return null;
             }
             return null;
@@ -57,11 +52,11 @@ async function cargarHorariosTrabajadoras() {
     try {
         console.log('🌐 Cargando horarios de trabajadoras desde Supabase...');
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/horarios_trabajadoras?select=*`,
+            `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?select=*`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
@@ -69,7 +64,6 @@ async function cargarHorariosTrabajadoras() {
         
         if (!response.ok) {
             if (response.status === 404) {
-                // La tabla no existe
                 return {};
             }
             return {};
@@ -77,7 +71,6 @@ async function cargarHorariosTrabajadoras() {
         
         const data = await response.json();
         
-        // Convertir array a objeto por trabajadora
         const horarios = {};
         data.forEach(item => {
             if (!horarios[item.trabajadora_id]) {
@@ -98,7 +91,6 @@ async function cargarHorariosTrabajadoras() {
 
 // Funciones globales
 window.salonConfig = {
-    // Obtener configuración global
     get: async function() {
         if (Date.now() - ultimaActualizacion < CACHE_DURATION) {
             return { ...configuracionGlobal };
@@ -109,18 +101,16 @@ window.salonConfig = {
         return { ...configuracionGlobal };
     },
     
-    // Guardar configuración global
     guardar: async function(nuevaConfig) {
         try {
             console.log('💾 Guardando configuración global:', nuevaConfig);
             
-            // Verificar si existe algún registro
             const checkResponse = await fetch(
-                `${SUPABASE_URL}/rest/v1/configuracion?select=id`,
+                `${window.SUPABASE_URL}/rest/v1/configuracion?select=id`,
                 {
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -130,14 +120,13 @@ window.salonConfig = {
             
             let response;
             if (existe && existe.length > 0) {
-                // Actualizar
                 response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/configuracion?id=eq.${existe[0].id}`,
+                    `${window.SUPABASE_URL}/rest/v1/configuracion?id=eq.${existe[0].id}`,
                     {
                         method: 'PATCH',
                         headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                             'Content-Type': 'application/json',
                             'Prefer': 'return=representation'
                         },
@@ -145,14 +134,13 @@ window.salonConfig = {
                     }
                 );
             } else {
-                // Insertar
                 response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/configuracion`,
+                    `${window.SUPABASE_URL}/rest/v1/configuracion`,
                     {
                         method: 'POST',
                         headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                             'Content-Type': 'application/json',
                             'Prefer': 'return=representation'
                         },
@@ -178,15 +166,14 @@ window.salonConfig = {
         }
     },
     
-    // Obtener horarios de una trabajadora
     getHorariosTrabajadora: async function(trabajadoraId) {
         try {
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/horarios_trabajadoras?trabajadora_id=eq.${trabajadoraId}&select=*`,
+                `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?trabajadora_id=eq.${trabajadoraId}&select=*`,
                 {
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -208,18 +195,16 @@ window.salonConfig = {
         }
     },
     
-    // Guardar horarios de una trabajadora
     guardarHorariosTrabajadora: async function(trabajadoraId, horarios) {
         try {
             console.log(`💾 Guardando horarios para trabajadora ${trabajadoraId}:`, horarios);
             
-            // Verificar si ya existe
             const checkResponse = await fetch(
-                `${SUPABASE_URL}/rest/v1/horarios_trabajadoras?trabajadora_id=eq.${trabajadoraId}&select=id`,
+                `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?trabajadora_id=eq.${trabajadoraId}&select=id`,
                 {
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': window.SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -229,14 +214,13 @@ window.salonConfig = {
             
             let response;
             if (existe && existe.length > 0) {
-                // Actualizar
                 response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/horarios_trabajadoras?id=eq.${existe[0].id}`,
+                    `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras?id=eq.${existe[0].id}`,
                     {
                         method: 'PATCH',
                         headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                             'Content-Type': 'application/json',
                             'Prefer': 'return=representation'
                         },
@@ -247,14 +231,13 @@ window.salonConfig = {
                     }
                 );
             } else {
-                // Insertar
                 response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/horarios_trabajadoras`,
+                    `${window.SUPABASE_URL}/rest/v1/horarios_trabajadoras`,
                     {
                         method: 'POST',
                         headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'apikey': window.SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                             'Content-Type': 'application/json',
                             'Prefer': 'return=representation'
                         },
@@ -275,7 +258,6 @@ window.salonConfig = {
             
             const data = await response.json();
             
-            // Actualizar caché
             horariosTrabajadoras[trabajadoraId] = {
                 horas: horarios.horas || [],
                 dias: horarios.dias || []
@@ -298,3 +280,5 @@ setTimeout(async () => {
     await window.salonConfig.get();
     await cargarHorariosTrabajadoras();
 }, 1000);
+
+console.log('✅ salonConfig inicializado');
