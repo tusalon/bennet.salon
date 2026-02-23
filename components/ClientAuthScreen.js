@@ -1,4 +1,4 @@
-// components/ClientAuthScreen.js - VERSIÓN CORREGIDA (prioridad a trabajadoras)
+// components/ClientAuthScreen.js - VERSIÓN FINAL CORREGIDA
 
 function ClientAuthScreen({ onAccessGranted }) {
     const [nombre, setNombre] = React.useState('');
@@ -9,7 +9,6 @@ function ClientAuthScreen({ onAccessGranted }) {
     const [verificando, setVerificando] = React.useState(false);
     const [yaTieneSolicitud, setYaTieneSolicitud] = React.useState(false);
     const [estadoRechazado, setEstadoRechazado] = React.useState(false);
-    // 🔥 Estados para trabajadora
     const [esTrabajadora, setEsTrabajadora] = React.useState(false);
     const [trabajadoraInfo, setTrabajadoraInfo] = React.useState(null);
 
@@ -31,24 +30,36 @@ function ClientAuthScreen({ onAccessGranted }) {
         
         try {
             console.log('🔍 Verificando número:', numeroCompleto);
+            console.log('🔧 Funciones disponibles:', {
+                verificarTrabajadora: typeof window.verificarTrabajadoraPorTelefono
+            });
             
-            // 🔥 PASO 1: Verificar si es trabajadora (PRIMERO)
+            // ============================================
+            // 🔥 PASO 1: VERIFICAR SI ES TRABAJADORA (PRIMERO)
+            // ============================================
             if (window.verificarTrabajadoraPorTelefono) {
+                console.log('👩‍🎨 Verificando si es trabajadora...');
                 const trabajadora = await window.verificarTrabajadoraPorTelefono(numeroLimpio);
-                console.log('👩‍🎨 ¿Es trabajadora?', trabajadora);
+                console.log('📋 Resultado trabajadora:', trabajadora);
                 
                 if (trabajadora) {
+                    console.log('✅ ES TRABAJADORA:', trabajadora.nombre);
                     setEsTrabajadora(true);
                     setTrabajadoraInfo(trabajadora);
                     setClienteAutorizado(null);
                     setYaTieneSolicitud(false);
-                    setError('👩‍🎨 Acceso como trabajadora detectado. Hacé clic en "Ingresar como Trabajadora".');
+                    setError('👩‍🎨 Acceso como trabajadora detectado');
                     setVerificando(false);
-                    return; // ⚠️ IMPORTANTE: Salir aquí, no seguir verificando como cliente
+                    return; // ⚠️ SALIR - NO SEGUIR CON CLIENTE
                 }
+            } else {
+                console.error('❌ window.verificarTrabajadoraPorTelefono NO está disponible');
             }
             
-            // 🔥 PASO 2: Solo si NO es trabajadora, verificar como cliente
+            // ============================================
+            // PASO 2: SOLO SI NO ES TRABAJADORA, VERIFICAR COMO CLIENTE
+            // ============================================
+            console.log('👤 No es trabajadora, verificando como cliente...');
             setEsTrabajadora(false);
             setTrabajadoraInfo(null);
             
@@ -80,12 +91,6 @@ function ClientAuthScreen({ onAccessGranted }) {
                             setEstadoRechazado(true);
                             setError('Tu solicitud anterior fue rechazada. Podés volver a intentarlo.');
                         }
-                        else if (estado.estado === 'aprobado') {
-                            // Inconsistencia: aprobado pero no en autorizados
-                            setYaTieneSolicitud(true);
-                            setEstadoRechazado(false);
-                            setError('Hay una inconsistencia. Contactá al dueño.');
-                        }
                         else {
                             setYaTieneSolicitud(true);
                             setEstadoRechazado(false);
@@ -113,7 +118,7 @@ function ClientAuthScreen({ onAccessGranted }) {
             return;
         }
         
-        // 🔥 Si es trabajadora, no debería llegar aquí
+        // Si es trabajadora, no debería llegar aquí
         if (esTrabajadora) {
             setError('Las trabajadoras deben usar el botón de acceso especial.');
             return;
@@ -149,7 +154,6 @@ function ClientAuthScreen({ onAccessGranted }) {
         }
     };
 
-    // 🔥 Acceso para trabajadora
     const handleAccesoTrabajadora = () => {
         if (trabajadoraInfo) {
             console.log('👩‍🎨 Accediendo como trabajadora:', trabajadoraInfo);
@@ -241,7 +245,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                                 onChange={(e) => setNombre(e.target.value)}
                                 className={`w-full px-4 py-3 rounded-lg border ${
                                     esTrabajadora 
-                                        ? 'bg-gray-100 border-gray-300 text-gray-500' 
+                                        ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed' 
                                         : 'border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500'
                                 } outline-none transition`}
                                 placeholder="Ej: María García"
@@ -287,7 +291,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                             </div>
                         )}
 
-                        {/* 🔥 BANNER PARA TRABAJADORA (PÚRPURA) */}
+                        {/* BANNER PARA TRABAJADORA */}
                         {esTrabajadora && trabajadoraInfo && !verificando && (
                             <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 animate-fade-in">
                                 <div className="flex items-start gap-3">
@@ -301,15 +305,12 @@ function ClientAuthScreen({ onAccessGranted }) {
                                         <p className="text-purple-600 text-sm mt-1">
                                             Detectamos que sos trabajadora de Bennet Salon.
                                         </p>
-                                        <p className="text-purple-500 text-xs mt-2">
-                                            Hacé clic en el botón púrpura para acceder a tu panel.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* BANNER PARA CLIENTE AUTORIZADO (VERDE) */}
+                        {/* BANNER PARA CLIENTE AUTORIZADO */}
                         {clienteAutorizado && !verificando && !esTrabajadora && (
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-fade-in">
                                 <div className="flex items-start gap-3">
@@ -317,9 +318,6 @@ function ClientAuthScreen({ onAccessGranted }) {
                                     <div className="flex-1">
                                         <p className="text-green-800 font-medium">
                                             ¡Hola <strong>{clienteAutorizado.nombre}</strong>! Ya tenés acceso.
-                                        </p>
-                                        <p className="text-green-600 text-sm mt-1">
-                                            Hacé clic en el botón verde para ingresar.
                                         </p>
                                     </div>
                                 </div>
@@ -338,9 +336,9 @@ function ClientAuthScreen({ onAccessGranted }) {
                             </div>
                         )}
 
-                        {/* 🔥 BOTONES DE ACCIÓN */}
+                        {/* BOTONES DE ACCIÓN */}
                         <div className="space-y-3 pt-2">
-                            {/* BOTÓN PARA TRABAJADORA (PÚRPURA) */}
+                            {/* BOTÓN PARA TRABAJADORA */}
                             {esTrabajadora && trabajadoraInfo && !verificando && (
                                 <button
                                     type="button"
@@ -352,7 +350,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                                 </button>
                             )}
 
-                            {/* BOTÓN PARA CLIENTE AUTORIZADO (VERDE) */}
+                            {/* BOTÓN PARA CLIENTE AUTORIZADO */}
                             {clienteAutorizado && !verificando && !esTrabajadora && (
                                 <button
                                     type="button"
@@ -364,7 +362,7 @@ function ClientAuthScreen({ onAccessGranted }) {
                                 </button>
                             )}
 
-                            {/* BOTÓN PARA SOLICITAR ACCESO (solo para no trabajadoras y no autorizadas) */}
+                            {/* BOTÓN PARA SOLICITAR ACCESO */}
                             {!clienteAutorizado && !esTrabajadora && !verificando && (
                                 <button
                                     type="submit"
@@ -377,21 +375,6 @@ function ClientAuthScreen({ onAccessGranted }) {
                             )}
                         </div>
                     </form>
-
-                    {/* Mensaje informativo */}
-                    <div className="mt-6 text-xs text-center text-gray-400 border-t pt-4">
-                        <p className="mb-2 font-medium text-gray-500">¿Cómo ingresar?</p>
-                        <div className="grid grid-cols-2 gap-2 text-left">
-                            <div className="bg-purple-50 p-2 rounded">
-                                <span className="font-bold text-purple-700">👩‍🎨 Trabajadoras:</span>
-                                <p className="text-purple-600">Ingresá tu número y usá el botón púrpura</p>
-                            </div>
-                            <div className="bg-pink-50 p-2 rounded">
-                                <span className="font-bold text-pink-700">👤 Clientes:</span>
-                                <p className="text-pink-600">Completá nombre y solicitá acceso</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
