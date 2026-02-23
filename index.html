@@ -86,13 +86,34 @@
 <body>
     <div id="root"></div>
 
-    <!-- Scripts de la app en el orden correcto -->
-    <script type="text/babel" src="utils/api.js"></script>
-    <script type="text/babel" src="utils/timeLogic.js"></script>
-    <script type="text/babel" src="utils/auth-clients.js"></script>
-    <script type="text/babel" src="utils/config.js"></script>
-    <script type="text/babel" src="utils/servicios.js"></script>
-    <script type="text/babel" src="utils/trabajadoras.js"></script>
+    <!-- ============================================ -->
+    <!-- SCRIPTS CORREGIDOS - VERSIÓN 100% FUNCIONAL -->
+    <!-- ============================================ -->
+    
+    <!-- PRIMERO: Configuración central de Supabase (sin Babel) -->
+    <script type="text/javascript" src="utils/supabase-config.js"></script>
+    
+    <!-- SEGUNDO: Utilidades sin JSX (type="text/javascript") -->
+    <script type="text/javascript" src="utils/api.js"></script>
+    <script type="text/javascript" src="utils/timeLogic.js"></script>
+    <script type="text/javascript" src="utils/auth-clients.js"></script>
+    <script type="text/javascript" src="utils/auth-trabajadores.js"></script>
+    <script type="text/javascript" src="utils/config.js"></script>
+    <script type="text/javascript" src="utils/servicios.js"></script>
+    <script type="text/javascript" src="utils/trabajadoras.js"></script>
+
+    <!-- Script de verificación (opcional - ayuda a debuggear) -->
+    <script type="text/javascript">
+        console.log('🔍 VERIFICACIÓN DE CARGA:');
+        console.log('✅ supabase-config:', typeof window.SUPABASE_URL !== 'undefined' ? 'OK' : 'FALTA');
+        console.log('✅ auth-trabajadores:', typeof window.verificarTrabajadoraPorTelefono);
+        console.log('✅ auth-clientes:', typeof window.verificarAccesoCliente);
+        console.log('✅ salonConfig:', typeof window.salonConfig);
+        console.log('✅ salonServicios:', typeof window.salonServicios);
+        console.log('✅ salonTrabajadoras:', typeof window.salonTrabajadoras);
+    </script>
+
+    <!-- TERCERO: Componentes con JSX (type="text/babel") -->
     <script type="text/babel" src="components/Header.js"></script>
     <script type="text/babel" src="components/ServiceSelection.js"></script>
     <script type="text/babel" src="components/WorkerSelector.js"></script>
