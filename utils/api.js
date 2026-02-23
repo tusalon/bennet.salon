@@ -1,4 +1,4 @@
-// utils/api.js - VERSIÓN CORREGIDA (sin declaraciones duplicadas)
+// utils/api.js - VERSIÓN COMPLETA
 
 console.log('📡 api.js cargado');
 

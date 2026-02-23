@@ -1,7 +1,4 @@
-// admin-app.js - Bennet Salon (VERSIÓN CORREGIDA)
-
-// ✅ Usar la variable global de api.js, no redeclarar
-// const TABLE_NAME = 'benettsalon'; ← ELIMINADO
+// admin-app.js - Bennet Salon (VERSIÓN COMPLETA CON RESERVAS MANUALES)
 
 // ============================================
 // FUNCIONES DE SUPABASE
@@ -62,22 +59,149 @@ function AdminApp() {
     const [cargandoClientes, setCargandoClientes] = React.useState(false);
 
     // ============================================
+    // MODAL PARA CREAR RESERVA MANUAL
+    // ============================================
+    const [showNuevaReservaModal, setShowNuevaReservaModal] = React.useState(false);
+    const [nuevaReservaData, setNuevaReservaData] = React.useState({
+        cliente_nombre: '',
+        cliente_whatsapp: '',
+        servicio: '',
+        trabajador_id: '',
+        fecha: '',
+        hora_inicio: ''
+    });
+
+    // Cargar servicios y trabajadoras para el modal
+    const [serviciosList, setServiciosList] = React.useState([]);
+    const [trabajadorasList, setTrabajadorasList] = React.useState([]);
+    const [horariosDisponibles, setHorariosDisponibles] = React.useState([]);
+
+    // ============================================
     // DETECTAR ROL Y NIVEL DEL USUARIO AL INICIAR
     // ============================================
     React.useEffect(() => {
-        // Verificar si hay una trabajadora autenticada
         const trabajadoraAuth = window.getTrabajadoraAutenticada?.();
         if (trabajadoraAuth) {
             console.log('👤 Usuario detectado como trabajadora:', trabajadoraAuth);
             setUserRole('trabajadora');
             setTrabajadora(trabajadoraAuth);
             setUserNivel(trabajadoraAuth.nivel || 1);
+            
+            // Para trabajadoras, preseleccionar su ID
+            setNuevaReservaData(prev => ({
+                ...prev,
+                trabajador_id: trabajadoraAuth.id
+            }));
         } else {
             console.log('👑 Usuario detectado como admin');
             setUserRole('admin');
             setUserNivel(3);
         }
     }, []);
+
+    // Cargar datos para el modal
+    React.useEffect(() => {
+        const cargarDatosModal = async () => {
+            if (window.salonServicios) {
+                const servicios = await window.salonServicios.getAll(true);
+                setServiciosList(servicios || []);
+            }
+            if (window.salonTrabajadoras) {
+                const trabajadoras = await window.salonTrabajadoras.getAll(true);
+                setTrabajadorasList(trabajadoras || []);
+            }
+        };
+        cargarDatosModal();
+    }, []);
+
+    // Cargar horarios disponibles cuando se selecciona trabajadora y fecha
+    React.useEffect(() => {
+        const cargarHorarios = async () => {
+            if (nuevaReservaData.trabajador_id && nuevaReservaData.fecha) {
+                try {
+                    const horarios = await window.salonConfig.getHorariosTrabajadora(nuevaReservaData.trabajador_id);
+                    const bookings = await window.getBookingsByDateAndWorker(nuevaReservaData.fecha, nuevaReservaData.trabajador_id);
+                    
+                    const baseSlots = (horarios.horas || []).map(h => 
+                        `${h.toString().padStart(2, '0')}:00`
+                    );
+                    
+                    const servicioSeleccionado = serviciosList.find(s => s.nombre === nuevaReservaData.servicio);
+                    const duracion = servicioSeleccionado?.duracion || 60;
+                    
+                    const available = baseSlots.filter(slotStartStr => {
+                        const slotStart = timeToMinutes(slotStartStr);
+                        const slotEnd = slotStart + duracion;
+                        
+                        const hasConflict = bookings.some(booking => {
+                            const bookingStart = timeToMinutes(booking.hora_inicio);
+                            const bookingEnd = timeToMinutes(booking.hora_fin);
+                            return (slotStart < bookingEnd) && (slotEnd > bookingStart);
+                        });
+                        
+                        return !hasConflict;
+                    });
+                    
+                    setHorariosDisponibles(available);
+                } catch (error) {
+                    console.error('Error cargando horarios:', error);
+                    setHorariosDisponibles([]);
+                }
+            } else {
+                setHorariosDisponibles([]);
+            }
+        };
+        cargarHorarios();
+    }, [nuevaReservaData.trabajador_id, nuevaReservaData.fecha, nuevaReservaData.servicio]);
+
+    const handleCrearReservaManual = async () => {
+        if (!nuevaReservaData.cliente_nombre || !nuevaReservaData.cliente_whatsapp || 
+            !nuevaReservaData.servicio || !nuevaReservaData.trabajador_id || 
+            !nuevaReservaData.fecha || !nuevaReservaData.hora_inicio) {
+            alert('Completá todos los campos');
+            return;
+        }
+
+        try {
+            const servicio = serviciosList.find(s => s.nombre === nuevaReservaData.servicio);
+            const trabajadora = trabajadorasList.find(t => t.id === parseInt(nuevaReservaData.trabajador_id));
+            
+            const endTime = calculateEndTime(nuevaReservaData.hora_inicio, servicio.duracion);
+            
+            const bookingData = {
+                cliente_nombre: nuevaReservaData.cliente_nombre,
+                cliente_whatsapp: `53${nuevaReservaData.cliente_whatsapp.replace(/\D/g, '')}`,
+                servicio: nuevaReservaData.servicio,
+                duracion: servicio.duracion,
+                trabajador_id: nuevaReservaData.trabajador_id,
+                trabajador_nombre: trabajadora.nombre,
+                fecha: nuevaReservaData.fecha,
+                hora_inicio: nuevaReservaData.hora_inicio,
+                hora_fin: endTime,
+                estado: "Reservado"
+            };
+
+            console.log('📤 Creando reserva manual:', bookingData);
+            const result = await createBooking(bookingData);
+            
+            if (result.success) {
+                alert('✅ Reserva creada exitosamente');
+                setShowNuevaReservaModal(false);
+                setNuevaReservaData({
+                    cliente_nombre: '',
+                    cliente_whatsapp: '',
+                    servicio: '',
+                    trabajador_id: userRole === 'trabajadora' ? trabajadora?.id : '',
+                    fecha: '',
+                    hora_inicio: ''
+                });
+                fetchBookings();
+            }
+        } catch (error) {
+            console.error('Error creando reserva:', error);
+            alert('❌ Error al crear la reserva');
+        }
+    };
 
     // ============================================
     // FUNCIONES DE CLIENTES
@@ -299,6 +423,18 @@ function AdminApp() {
         return tabs;
     };
 
+    const abrirModalNuevaReserva = () => {
+        setNuevaReservaData({
+            cliente_nombre: '',
+            cliente_whatsapp: '',
+            servicio: '',
+            trabajador_id: userRole === 'trabajadora' ? trabajadora?.id : '',
+            fecha: '',
+            hora_inicio: ''
+        });
+        setShowNuevaReservaModal(true);
+    };
+
     const tabsDisponibles = getTabsDisponibles();
 
     return (
@@ -306,7 +442,7 @@ function AdminApp() {
             <div className="max-w-6xl mx-auto space-y-4">
                 
                 {/* HEADER */}
-                <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
+                <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center flex-wrap gap-2">
                     <div>
                         <h1 className="text-xl font-bold">
                             {userRole === 'trabajadora' 
@@ -329,6 +465,15 @@ function AdminApp() {
                         )}
                     </div>
                     <div className="flex gap-2">
+                        {/* BOTÓN NUEVA RESERVA MANUAL */}
+                        <button
+                            onClick={abrirModalNuevaReserva}
+                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition transform hover:scale-105 shadow-md"
+                            title="Crear reserva para un cliente"
+                        >
+                            <span>📅</span>
+                            <span className="hidden sm:inline">Nueva Reserva</span>
+                        </button>
                         <button 
                             onClick={fetchBookings} 
                             className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"
@@ -345,6 +490,172 @@ function AdminApp() {
                         </button>
                     </div>
                 </div>
+
+                {/* MODAL NUEVA RESERVA */}
+                {showNuevaReservaModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">📅 Nueva Reserva Manual</h3>
+                                <button 
+                                    onClick={() => setShowNuevaReservaModal(false)}
+                                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Nombre del cliente */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Nombre del Cliente *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={nuevaReservaData.cliente_nombre}
+                                        onChange={(e) => setNuevaReservaData({...nuevaReservaData, cliente_nombre: e.target.value})}
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        placeholder="Ej: Juan Pérez"
+                                    />
+                                </div>
+
+                                {/* WhatsApp del cliente */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        WhatsApp del Cliente *
+                                    </label>
+                                    <div className="flex">
+                                        <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500">
+                                            +53
+                                        </span>
+                                        <input
+                                            type="tel"
+                                            value={nuevaReservaData.cliente_whatsapp}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/\D/g, '');
+                                                setNuevaReservaData({...nuevaReservaData, cliente_whatsapp: value});
+                                            }}
+                                            className="w-full px-4 py-2 rounded-r-lg border border-gray-300"
+                                            placeholder="54242576"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1">8 dígitos después del +53</p>
+                                </div>
+
+                                {/* Selección de servicio */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Servicio *
+                                    </label>
+                                    <select
+                                        value={nuevaReservaData.servicio}
+                                        onChange={(e) => setNuevaReservaData({...nuevaReservaData, servicio: e.target.value})}
+                                        className="w-full border rounded-lg px-3 py-2"
+                                    >
+                                        <option value="">Seleccionar servicio</option>
+                                        {serviciosList.map(s => (
+                                            <option key={s.id} value={s.nombre}>
+                                                {s.nombre} ({s.duracion} min)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Selección de trabajadora (solo visible para admin o nivel 3) */}
+                                {(userRole === 'admin' || userNivel >= 3) && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Trabajadora *
+                                        </label>
+                                        <select
+                                            value={nuevaReservaData.trabajador_id}
+                                            onChange={(e) => setNuevaReservaData({...nuevaReservaData, trabajador_id: e.target.value})}
+                                            className="w-full border rounded-lg px-3 py-2"
+                                        >
+                                            <option value="">Seleccionar trabajadora</option>
+                                            {trabajadorasList.map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.nombre} - {t.especialidad}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Para trabajadoras nivel 1 y 2, mostrar mensaje de que la reserva será para ellas */}
+                                {userRole === 'trabajadora' && userNivel <= 2 && (
+                                    <div className="bg-blue-50 p-3 rounded-lg">
+                                        <p className="text-sm text-blue-700">
+                                            La reserva será asignada a vos: <strong>{trabajadora?.nombre}</strong>
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Fecha */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Fecha *
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={nuevaReservaData.fecha}
+                                        onChange={(e) => setNuevaReservaData({...nuevaReservaData, fecha: e.target.value})}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        className="w-full border rounded-lg px-3 py-2"
+                                    />
+                                </div>
+
+                                {/* Horarios disponibles */}
+                                {nuevaReservaData.fecha && nuevaReservaData.trabajador_id && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Hora de inicio *
+                                        </label>
+                                        {horariosDisponibles.length > 0 ? (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {horariosDisponibles.map(hora => (
+                                                    <button
+                                                        key={hora}
+                                                        type="button"
+                                                        onClick={() => setNuevaReservaData({...nuevaReservaData, hora_inicio: hora})}
+                                                        className={`py-2 px-3 rounded-lg text-sm font-medium transition ${
+                                                            nuevaReservaData.hora_inicio === hora
+                                                                ? 'bg-pink-600 text-white'
+                                                                : 'bg-gray-100 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {formatTo12Hour(hora)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                                                No hay horarios disponibles para esta fecha
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Botones de acción */}
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        onClick={() => setShowNuevaReservaModal(false)}
+                                        className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-100"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleCrearReservaManual}
+                                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                    >
+                                        Crear Reserva
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* PESTAÑAS */}
                 <div className="bg-white p-2 rounded-xl shadow-sm flex flex-wrap gap-2">
@@ -582,6 +893,7 @@ function AdminApp() {
                                             <p>👤 {b.cliente_nombre}</p>
                                             <p>📱 {b.cliente_whatsapp}</p>
                                             <p>💅 {b.servicio}</p>
+                                            <p>👩‍🎨 {b.trabajador_nombre}</p>
                                         </div>
                                         <div className="flex justify-between items-center mt-3 pt-2 border-t">
                                             <span className={`px-2 py-1 rounded-full text-xs font-semibold
