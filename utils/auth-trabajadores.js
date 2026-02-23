@@ -1,7 +1,4 @@
-// utils/auth-trabajadores.js - Autenticación de trabajadoras
-
-const SUPABASE_URL = 'https://torwzztbyeryptydytwr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnd6enRieWVyeXB0eWR5dHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzODAxNzIsImV4cCI6MjA4Njk1NjE3Mn0.yISCKznhbQt5UAW5lwSuG2A2NUS71GSbirhpa9mMpyI';
+// utils/auth-trabajadores.js - Versión completa
 
 console.log('👤 auth-trabajadores.js cargado');
 
@@ -14,13 +11,12 @@ window.loginTrabajadora = async function(telefono, password) {
     try {
         console.log('🔐 Intentando login de trabajadora:', telefono);
         
-        // Buscar trabajadora por teléfono y contraseña
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/trabajadoras?telefono=eq.${telefono}&password=eq.${password}&activo=eq.true&select=*`,
+            `${window.SUPABASE_URL}/rest/v1/trabajadoras?telefono=eq.${telefono}&password=eq.${password}&activo=eq.true&select=*`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
@@ -36,12 +32,6 @@ window.loginTrabajadora = async function(telefono, password) {
         
         if (data && data.length > 0) {
             const trabajadora = data[0];
-            // Guardar sesión
-            localStorage.setItem('trabajadoraAuth', JSON.stringify({
-                id: trabajadora.id,
-                nombre: trabajadora.nombre,
-                telefono: trabajadora.telefono
-            }));
             return trabajadora;
         }
         return null;
@@ -51,66 +41,133 @@ window.loginTrabajadora = async function(telefono, password) {
     }
 };
 
-// Verificar si un número pertenece a una trabajadora (sin contraseña)
+// 🔥 FUNCIÓN IMPORTANTE: Verificar si un número pertenece a una trabajadora (SIN CONTRASEÑA)
 window.verificarTrabajadoraPorTelefono = async function(telefono) {
     try {
-        console.log('🔍 Verificando si es trabajadora:', telefono);
+        console.log('🔍 Verificando si es trabajadora (solo teléfono):', telefono);
         
         const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/trabajadoras?telefono=eq.${telefono}&activo=eq.true&select=*`,
+            `${window.SUPABASE_URL}/rest/v1/trabajadoras?telefono=eq.${telefono}&activo=eq.true&select=id,nombre,telefono`,
             {
                 headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
         );
         
-        if (!response.ok) return null;
+        if (!response.ok) {
+            console.error('Error response:', await response.text());
+            return null;
+        }
         
         const data = await response.json();
-        return data.length > 0 ? data[0] : null;
+        console.log('📋 Resultado verificación:', data);
+        
+        if (data && data.length > 0) {
+            return data[0]; // Devolver la primera trabajadora encontrada
+        }
+        return null;
     } catch (error) {
         console.error('Error verificando trabajadora:', error);
         return null;
     }
 };
 
-// Obtener trabajadora autenticada
+// Obtener trabajadora autenticada desde localStorage
 window.getTrabajadoraAutenticada = function() {
     const auth = localStorage.getItem('trabajadoraAuth');
     if (auth) {
-        return JSON.parse(auth);
+        try {
+            return JSON.parse(auth);
+        } catch (e) {
+            return null;
+        }
     }
     return null;
 };
 
-// Cerrar sesión de trabajadora
-window.logoutTrabajadora = function() {
-    localStorage.removeItem('trabajadoraAuth');
-    localStorage.removeItem('adminAuth');
-    localStorage.removeItem('adminUser');
-    localStorage.removeItem('adminLoginTime');
-    window.location.href = 'admin-login.html';
-};
+// ============================================
+// FUNCIONES PARA OBTENER ROL
+// ============================================
 
-// Obtener reservas de una trabajadora específica
-window.getReservasPorTrabajadora = async function(trabajadoraId, soloPendientes = true) {
+// Obtener el rol de un usuario (dueño, trabajadora o cliente)
+window.obtenerRolUsuario = async function(telefono) {
     try {
-        let url = `${SUPABASE_URL}/rest/v1/benettsalon?trabajador_id=eq.${trabajadoraId}&order=fecha.asc,hora_inicio.asc`;
+        console.log('🔍 Obteniendo rol para:', telefono);
         
-        if (soloPendientes) {
-            url += `&estado=neq.Cancelado`;
+        // Caso 1: Es el dueño? (hardcodeado)
+        if (telefono === '5354066204') {
+            console.log('👑 Es el dueño');
+            return {
+                rol: 'admin',
+                nombre: 'Dueño'
+            };
         }
         
-        const response = await fetch(url, {
-            headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
+        // Caso 2: Es una trabajadora?
+        const trabajadoraRes = await fetch(
+            `${window.SUPABASE_URL}/rest/v1/trabajadoras?telefono=eq.${telefono}&activo=eq.true&select=id,nombre`,
+            {
+                headers: {
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json'
+                }
             }
-        });
+        );
+        
+        if (trabajadoraRes.ok) {
+            const trabajadoras = await trabajadoraRes.json();
+            if (trabajadoras && trabajadoras.length > 0) {
+                console.log('👩‍🎨 Es trabajadora:', trabajadoras[0].nombre);
+                return {
+                    rol: 'trabajadora',
+                    id: trabajadoras[0].id,
+                    nombre: trabajadoras[0].nombre
+                };
+            }
+        }
+        
+        // Caso 3: Es un cliente normal
+        return {
+            rol: 'cliente',
+            nombre: null
+        };
+        
+    } catch (error) {
+        console.error('Error obteniendo rol:', error);
+        return { rol: 'cliente' };
+    }
+};
+
+// Verificar si tiene acceso al panel (para el header)
+window.tieneAccesoPanel = async function(telefono) {
+    const rol = await window.obtenerRolUsuario(telefono);
+    return rol.rol === 'admin' || rol.rol === 'trabajadora';
+};
+
+// Obtener reservas por trabajadora
+window.getReservasPorTrabajadora = async function(trabajadoraId, soloActivas = true) {
+    try {
+        console.log(`📋 Obteniendo reservas para trabajadora ${trabajadoraId}`);
+        let url = `${window.SUPABASE_URL}/rest/v1/benettsalon?trabajador_id=eq.${trabajadoraId}&order=fecha.desc,hora_inicio.asc`;
+        
+        if (soloActivas) {
+            url += '&estado=neq.Cancelado';
+        }
+        
+        const response = await fetch(
+            url,
+            {
+                headers: {
+                    'apikey': window.SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
         
         if (!response.ok) return [];
         
