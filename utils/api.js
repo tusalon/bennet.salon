@@ -1,8 +1,12 @@
-// utils/api.js - VERSIÓN CORREGIDA (usa window.SUPABASE_URL)
+// utils/api.js - VERSIÓN CORREGIDA (sin declaraciones duplicadas)
 
 console.log('📡 api.js cargado');
 
-const TABLE_NAME = 'benettsalon';
+// Usar variable global o definir si no existe
+if (typeof window.TABLE_NAME === 'undefined') {
+    window.TABLE_NAME = 'benettsalon';
+}
+const TABLE_NAME = window.TABLE_NAME;
 
 /**
  * Fetch all bookings for a specific date
